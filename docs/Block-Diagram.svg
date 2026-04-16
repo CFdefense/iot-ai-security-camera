@@ -1,0 +1,127 @@
+<svg width="100%" viewBox="0 0 780 511.68" xmlns="http://www.w3.org/2000/svg"
+  font-family="'Segoe UI', Arial, sans-serif">
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6"
+      orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round"
+        stroke-linejoin="round" />
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="780" height="511.68" fill="#111418" />
+
+  <!-- Title -->
+  <text x="390" y="22" text-anchor="middle" font-size="13" font-weight="700" fill="#FFFFFF" letter-spacing="0.5">Smart
+    Security Camera - IoT Block Diagram</text>
+  <text x="390" y="36" text-anchor="middle" font-size="9" fill="#888" letter-spacing="0.3">Track B - Computer Vision IoT
+    System</text>
+  <text x="390" y="49" text-anchor="middle" font-size="9" fill="#666" letter-spacing="0.3">Psychic Securities</text>
+
+  <g transform="translate(0,10)">
+    <!-- Device Layer -->
+    <rect x="16" y="46" width="748" height="96" rx="8" fill="#1A1D27" stroke="#2A2D3A" stroke-width="1" />
+    <text x="28" y="59" font-size="8" font-weight="600" fill="#5B8BFF" letter-spacing="1">DEVICE LAYER</text>
+
+    <rect x="112" y="70" width="118" height="52" rx="6" fill="#1E3A5F" stroke="#5B8BFF" stroke-width="1.2" />
+    <text x="171" y="89" text-anchor="middle" font-size="10" font-weight="600" fill="#90BAFF">Avoidance sensor</text>
+    <text x="171" y="104" text-anchor="middle" font-size="8" fill="#5B8BFF">IR proximity trigger</text>
+
+    <rect x="250" y="70" width="118" height="52" rx="6" fill="#1F3A27" stroke="#7BC96F" stroke-width="1.2" />
+    <text x="309" y="89" text-anchor="middle" font-size="10" font-weight="600" fill="#BDE7B0">Photoresistor</text>
+    <text x="309" y="104" text-anchor="middle" font-size="8" fill="#7BC96F">Light above threshold</text>
+
+    <rect x="388" y="70" width="138" height="52" rx="6" fill="#2A1F50" stroke="#9B7BFF" stroke-width="1.2" />
+    <text x="457" y="89" text-anchor="middle" font-size="10" font-weight="600" fill="#C4AAFF">Arduino Uno</text>
+    <text x="457" y="104" text-anchor="middle" font-size="8" fill="#9B7BFF">Signals Pi only if both pass</text>
+
+    <rect x="546" y="70" width="122" height="52" rx="6" fill="#2A1F50" stroke="#9B7BFF" stroke-width="1.2" />
+    <text x="607" y="89" text-anchor="middle" font-size="10" font-weight="600" fill="#C4AAFF">Pi AI Camera</text>
+    <text x="607" y="104" text-anchor="middle" font-size="8" fill="#9B7BFF">Capture face image</text>
+
+    <line x1="230" y1="96" x2="248" y2="96" stroke="#5B8BFF" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="368" y1="96" x2="386" y2="96" stroke="#7BC96F" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="526" y1="96" x2="544" y2="96" stroke="#9B7BFF" stroke-width="1.2" marker-end="url(#arrow)" />
+
+    <!-- Gateway Layer -->
+    <rect x="16" y="152" width="748" height="104" rx="8" fill="#1A1D27" stroke="#2A2D3A" stroke-width="1" />
+    <text x="28" y="165" font-size="8" font-weight="600" fill="#3ECFB2" letter-spacing="1">GATEWAY LAYER</text>
+
+    <rect x="54" y="176" width="186" height="54" rx="6" fill="#2A2112" stroke="#F5A623" stroke-width="1.2" />
+    <text x="147" y="196" text-anchor="middle" font-size="10" font-weight="600" fill="#FFD07A">Face match
+      decision</text>
+    <text x="147" y="211" text-anchor="middle" font-size="8" fill="#F5A623">Known if similarity &gt;= 0.6</text>
+
+    <rect x="297" y="176" width="186" height="54" rx="6" fill="#0F2A28" stroke="#3ECFB2" stroke-width="1.2" />
+    <text x="390" y="196" text-anchor="middle" font-size="10" font-weight="600" fill="#6EEDE0">SQLite whitelist</text>
+    <text x="390" y="211" text-anchor="middle" font-size="8" fill="#3ECFB2">Stored authorized embeddings</text>
+
+    <rect x="540" y="176" width="186" height="54" rx="6" fill="#3A2800" stroke="#F5A623" stroke-width="1.2" />
+    <text x="633" y="196" text-anchor="middle" font-size="10" font-weight="600" fill="#FFD07A">Raspberry Pi</text>
+    <text x="633" y="211" text-anchor="middle" font-size="8" fill="#F5A623">Person check + 128-d embedding</text>
+
+    <line x1="607" y1="122" x2="633" y2="174" stroke="#F5A623" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="540" y1="203" x2="485" y2="203" stroke="#3ECFB2" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="297" y1="203" x2="242" y2="203" stroke="#F5A623" stroke-width="1.2" marker-end="url(#arrow)" />
+
+    <!-- Messaging Layer -->
+    <rect x="16" y="266" width="748" height="116" rx="8" fill="#1A1D27" stroke="#2A2D3A" stroke-width="1" />
+    <text x="28" y="279" font-size="8" font-weight="600" fill="#F5A623" letter-spacing="1">MESSAGING + API LAYER</text>
+
+    <rect x="38" y="290" width="148" height="44" rx="6" fill="#1F2A1A" stroke="#4CAF50" stroke-width="1.2" />
+    <text x="112" y="308" text-anchor="middle" font-size="10" font-weight="600" fill="#88D96A">MQTT broker</text>
+    <text x="112" y="322" text-anchor="middle" font-size="8" fill="#4CAF50">Alerts, events, heartbeat</text>
+
+    <rect x="202" y="282" width="172" height="88" rx="6" fill="#1C1F30" stroke="#F5A623" stroke-width="1.2" />
+    <text x="288" y="298" text-anchor="middle" font-size="10" font-weight="700" fill="#F5A623" letter-spacing="0.5">MQTT
+      Topics</text>
+    <rect x="214" y="304" width="148" height="1" fill="#2A2D40" />
+    <text x="218" y="323" font-size="8.5" fill="#FF7B7B">- home/security/alerts</text>
+    <text x="218" y="337" font-size="8.5" fill="#9B7BFF">- home/security/events</text>
+    <text x="218" y="351" font-size="8.5" fill="#6EC8FF">- home/security/status</text>
+
+    <rect x="392" y="282" width="188" height="88" rx="6" fill="#1C1F30" stroke="#9B7BFF" stroke-width="1.2" />
+    <text x="486" y="298" text-anchor="middle" font-size="10" font-weight="700" fill="#C4AAFF" letter-spacing="0.5">REST
+      API Routes</text>
+    <rect x="404" y="304" width="164" height="1" fill="#2A2D40" />
+    <text x="408" y="323" font-size="8.2" fill="#3ECFB2">- POST /users/register</text>
+    <text x="408" y="337" font-size="8.2" fill="#C4AAFF">- POST /detect/toggle</text>
+
+    <rect x="594" y="290" width="148" height="44" rx="6" fill="#202228" stroke="#9B7BFF" stroke-width="1.2" />
+    <text x="668" y="308" text-anchor="middle" font-size="10" font-weight="600" fill="#C4AAFF">Registration flow</text>
+    <text x="668" y="322" text-anchor="middle" font-size="8" fill="#9B7BFF">Manual, separate from MQTT</text>
+
+    <line x1="186" y1="312" x2="200" y2="312" stroke="#F5A623" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="582" y1="312" x2="594" y2="312" stroke="#9B7BFF" stroke-width="1.2" marker-end="url(#arrow)" />
+
+    <!-- Output Layer -->
+    <rect x="16" y="392" width="748" height="86" rx="8" fill="#1A1D27" stroke="#2A2D3A" stroke-width="1" />
+    <text x="28" y="405" font-size="8" font-weight="600" fill="#B06BFF" letter-spacing="1">OUTPUT LAYER</text>
+
+    <rect x="56" y="412" width="175" height="46" rx="6" fill="#2A1A1A" stroke="#FF6B6B" stroke-width="1.2" />
+    <text x="143" y="430" text-anchor="middle" font-size="10" font-weight="600" fill="#FFB3B3">Mobile
+      notification</text>
+    <text x="143" y="444" text-anchor="middle" font-size="8" fill="#FF6B6B">Triggered by MQTT alert</text>
+
+    <rect x="302" y="412" width="175" height="46" rx="6" fill="#0F2A1A" stroke="#56C774" stroke-width="1.2" />
+    <text x="389" y="430" text-anchor="middle" font-size="10" font-weight="600" fill="#8DEBA6">Access granted</text>
+    <text x="389" y="444" text-anchor="middle" font-size="8" fill="#56C774">Local Pi match result</text>
+
+    <rect x="549" y="412" width="175" height="46" rx="6" fill="#0F2A28" stroke="#3ECFB2" stroke-width="1.2" />
+    <text x="636" y="430" text-anchor="middle" font-size="10" font-weight="600" fill="#6EEDE0">SQLite whitelist</text>
+    <text x="636" y="444" text-anchor="middle" font-size="8" fill="#3ECFB2">Updated by registration API</text>
+
+    <!-- Decision / flow arrows -->
+    <line x1="148" y1="230" x2="170" y2="410" stroke="#FF6B6B" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="148" y1="230" x2="390" y2="410" stroke="#56C774" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="148" y1="230" x2="150" y2="288" stroke="#4CAF50" stroke-width="1.2" marker-end="url(#arrow)" />
+
+    <line x1="668" y1="334" x2="668" y2="410" stroke="#3ECFB2" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="668" y1="290" x2="607" y2="122" stroke="#9B7BFF" stroke-width="1.2" marker-start="url(#arrow)"
+      marker-end="url(#arrow)" />
+
+  </g>
+  <text x="390" y="500" text-anchor="middle" font-size="8" fill="#444">Christian Farrell - Jeremy Frank | Psychic
+    Securities</text>
+
+</svg>
