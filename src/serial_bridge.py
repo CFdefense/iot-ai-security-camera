@@ -4,7 +4,7 @@ from pathlib import Path
 import serial
 import logging
 
-import config, detection
+from . import config, detection
 
 from .mqtt_service import MqttPublisher
 import threading
