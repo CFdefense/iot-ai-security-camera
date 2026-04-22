@@ -18,6 +18,7 @@ DB_PATH = Path(os.environ.get("CAMERA_DB_PATH", PROJECT_ROOT / "whitelist.sqlite
 # Serial Configuration
 SERIAL_PORT = os.environ.get("SERIAL_PORT", "/dev/ttyACM0")
 SERIAL_BAUD = int(os.environ.get("SERIAL_BAUD", "115200"))
+SERIAL_TIMEOUT = float(os.environ.get("SERIAL_TIMEOUT", "1.0"))
 
 # MQTT configuration
 MQTT_HOST = os.environ.get("MQTT_HOST", "localhost")
