@@ -24,7 +24,7 @@ import signal
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import paho.mqtt.client as mqtt
 
@@ -33,6 +33,39 @@ from . import config
 log = logging.getLogger("mqtt_service")
 
 _EVENTS_LOG = config.ARTIFACTS_DIR / "mqtt_published.jsonl"
+
+
+class MqttPublisher(Protocol):
+    """Structural interface satisfied by :class:`MqttService` and test fakes.
+
+    Callers (the Flask API, the detection loop) should depend on this
+    protocol instead of the concrete class so tests and alternate transports
+    compose cleanly.
+    """
+
+    @property
+    def detection_enabled(self) -> bool:
+        """Whether the detection loop should act on triggers."""
+        ...
+
+    def publish_event(self, event_type: str, data: dict[str, Any] | None = ...) -> None:
+        """Publish a non-critical event to the events topic."""
+        ...
+
+    def publish_alert(
+        self,
+        *,
+        event_type: str,
+        confidence: float,
+        image_ref: str | Path,
+        extra: dict[str, Any] | None = ...,
+    ) -> None:
+        """Publish an alert to the alerts topic (mobile notifications)."""
+        ...
+
+    def set_detection(self, enabled: bool) -> None:
+        """Enable or disable the detection loop and announce the change."""
+        ...
 
 
 def _now_iso() -> str:
@@ -61,9 +94,17 @@ class MqttService:
         self._lock = threading.Lock()
 
     def start(self) -> None:
-        """Connect to the broker and start the paho network loop thread."""
+        """Connect to the broker and start the paho network loop thread.
+
+        Uses ``connect_async`` so a temporarily-unreachable broker doesn't
+        crash startup; paho's loop will retry in the background. Publishes
+        issued before the broker comes up are silently dropped by paho.
+        """
         log.info("connecting to mqtt %s:%s", self.host, self.port)
-        self._client.connect(self.host, self.port, keepalive=config.MQTT_KEEPALIVE)
+        try:
+            self._client.connect_async(self.host, self.port, keepalive=config.MQTT_KEEPALIVE)
+        except Exception as e:
+            log.warning("mqtt connect_async failed (%s); will retry in background", e)
         self._client.loop_start()
 
     def stop(self) -> None:

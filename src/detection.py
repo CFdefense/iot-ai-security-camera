@@ -12,12 +12,12 @@ import logging
 from pathlib import Path
 
 from . import capture, config, db
-from .mqtt_service import MqttService
+from .mqtt_service import MqttPublisher
 
 log = logging.getLogger("detection")
 
 
-def handle_trigger(mqtt_service: MqttService) -> dict:
+def handle_trigger(mqtt_service: MqttPublisher) -> dict:
     """Run one detection pass.
 
     Side effects: captures an image, queries the whitelist, publishes either

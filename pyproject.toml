@@ -23,7 +23,10 @@ pi = [
 ]
 
 [project.scripts]
-camera-api = "src.api_service:main"
+# Full edge service: HTTP control plane + MQTT publisher + heartbeat in one process.
+camera-service = "src.api_service:main"
+# MQTT-only smoke test (heartbeat + manual publishes). Useful to verify the
+# broker without bringing Flask up.
 camera-mqtt = "src.mqtt_service:main"
 
 [dependency-groups]

@@ -1,19 +1,26 @@
-"""Flask REST API for the Smart Security Camera.
+"""Combined edge service for the Smart Security Camera.
 
-Exposes the private control plane described in docs/Architecture.pdf:
+This module is the long-running process on the Pi. It hosts three things in
+one place so they can share a single broker connection and a single copy of
+the ``detection_enabled`` flag:
 
-  POST /users/register    capture a photo, embed the face, store in the
-                           SQLite whitelist (requires X-API-Key header)
-  POST /detection/toggle   enable/disable the detection loop and announce
-                           the change on home/security/events
-  GET  /users              list whitelisted users (no embeddings returned)
-  GET  /healthz            unauthenticated liveness probe
+  1. The Flask REST control plane described in ``docs/Architecture.pdf``:
 
-The server binds to config.API_HOST (default 127.0.0.1) and requires a
+       POST /users/register    capture a photo, embed the face, store in the
+                                SQLite whitelist (requires X-API-Key header)
+       POST /detection/toggle   enable/disable the detection loop and
+                                announce the change on home/security/events
+       GET  /users              list whitelisted users (no embeddings)
+       GET  /healthz            unauthenticated liveness probe
+
+  2. The MQTT publisher for ``home/security/{alerts,events,status}``.
+  3. The 60-second heartbeat thread.
+
+The server binds to ``config.API_HOST`` (default 127.0.0.1) and requires a
 pre-shared key on every non-health route. Requests missing or providing a
 wrong key get a 401, matching the "Security / Safety Note" in the doc.
 
-Run:  python -m src.api_service
+Run:  uv run camera-service   (or: python -m src.api_service)
 """
 
 from __future__ import annotations
@@ -25,7 +32,7 @@ from functools import wraps
 from flask import Flask, jsonify, request
 
 from . import capture, config, db
-from .mqtt_service import MqttService
+from .mqtt_service import MqttPublisher, MqttService
 
 log = logging.getLogger("api_service")
 
@@ -43,12 +50,13 @@ def _require_api_key(fn):
     return wrapper
 
 
-def create_app(mqtt_service: MqttService | None = None) -> Flask:
+def create_app(mqtt_service: MqttPublisher | None = None) -> Flask:
     """Build and configure the Flask app.
 
     Args:
-        mqtt_service: Optional already-connected :class:`MqttService`. Tests
-            can pass ``None`` (detection-toggle routes will return 503).
+        mqtt_service: Anything satisfying :class:`MqttPublisher` (the real
+            :class:`MqttService` or a test fake). Pass ``None`` to disable
+            MQTT-backed routes (they will return 503).
 
     Returns:
         A ready-to-run Flask application with the private camera routes.
@@ -58,7 +66,7 @@ def create_app(mqtt_service: MqttService | None = None) -> Flask:
 
     @app.get("/healthz")
     def healthz():
-        mq: MqttService | None = app.config.get("mqtt")
+        mq: MqttPublisher | None = app.config.get("mqtt")
         return jsonify(
             {
                 "ok": True,
@@ -86,7 +94,7 @@ def create_app(mqtt_service: MqttService | None = None) -> Flask:
         with db.connect() as conn:
             user_id = db.add_user(conn, name, embedding)
 
-        mq: MqttService | None = app.config.get("mqtt")
+        mq: MqttPublisher | None = app.config.get("mqtt")
         if mq is not None:
             mq.publish_event(
                 "user_registered",
@@ -111,7 +119,7 @@ def create_app(mqtt_service: MqttService | None = None) -> Flask:
         if "enabled" not in body:
             return jsonify({"error": "body must include 'enabled' (bool)"}), 400
         enabled = bool(body["enabled"])
-        mq: MqttService | None = app.config.get("mqtt")
+        mq: MqttPublisher | None = app.config.get("mqtt")
         if mq is None:
             return jsonify({"error": "mqtt service not initialized"}), 503
         mq.set_detection(enabled)

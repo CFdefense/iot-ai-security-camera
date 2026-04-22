@@ -28,15 +28,16 @@ Smart Security Camera for Verified User Access (Computer Vision IoT system).
   - `mqtt_service.py` — MQTT publisher + 60 s heartbeat loop
   - `api_service.py` — Flask REST API (registration, detection toggle)
   - `detection.py` — single-trigger detection flow used by the Arduino bridge
+- `test/` — pytest suite (config, db, capture, mqtt, detection, api)
 - `pyproject.toml` — project metadata, deps, and ruff config (managed with `uv`)
 - `.env.example` — config template
 
 ## Topic plan (from `docs/Architecture.pdf`)
 
-| Topic | Purpose |
-| --- | --- |
-| `home/security/alerts` | Unknown-face alerts (drive mobile notifications). QoS 1. |
-| `home/security/events` | Proximity / access-granted / toggle / low-quality-capture. |
+| Topic                  | Purpose                                                      |
+| ---------------------- | ------------------------------------------------------------ |
+| `home/security/alerts` | Unknown-face alerts (drive mobile notifications). QoS 1.     |
+| `home/security/events` | Proximity / access-granted / toggle / low-quality-capture.   |
 | `home/security/status` | Retained heartbeat every 60 s with uptime + detection state. |
 
 ## Setup
@@ -64,27 +65,64 @@ uv sync --extra pi
 
 ## Run
 
-Start the MQTT heartbeat on its own (useful when only testing the broker):
+### 1. Start an MQTT broker
+
+Both services publish to `$MQTT_HOST:$MQTT_PORT` (default `localhost:1883`). If no
+broker is reachable, the services still start and retry in the background — but
+publishes are dropped until the broker is up. Easiest local option is
+[Mosquitto](https://mosquitto.org/):
+
+```bash
+# macOS — Homebrew installs the binary but ships only a .conf.example,
+# so use the dev config checked into this repo and run it in the foreground
+# (avoids flaky `brew services` / launchd errors):
+brew install mosquitto
+mosquitto -c dev/mosquitto.conf -v
+# Tip: if `mosquitto` isn't on PATH, use the full path:
+# /opt/homebrew/opt/mosquitto/sbin/mosquitto -c dev/mosquitto.conf -v
+
+# Debian / Raspberry Pi OS
+sudo apt install -y mosquitto mosquitto-clients
+sudo systemctl enable --now mosquitto
+
+# Docker (no install required)
+docker run -it --rm -p 1883:1883 eclipse-mosquitto
+```
+
+Smoke-test the broker from another shell:
+
+```bash
+mosquitto_sub -h localhost -t 'home/security/#' -v
+```
+
+### 2. Start the service
+
+For normal use, run the combined service — it serves the REST control plane
+**and** runs the MQTT publisher + 60s heartbeat in the same process:
+
+```bash
+uv run camera-service
+```
+
+For broker-wiring smoke tests only, you can start the MQTT side by itself
+(no HTTP, just the heartbeat + manual publishes):
 
 ```bash
 uv run camera-mqtt
 ```
 
-Start the REST API (also starts the MQTT client + heartbeat in-process):
-
-```bash
-uv run camera-api
-```
-
 Either entry point can also be invoked as a module, e.g. `uv run python -m src.api_service`.
+Do **not** run files as scripts (`python src/mqtt_service.py`) — they use relative
+imports and need to be loaded as package members.
 
 ## Lint / format / test
 
 ```bash
-uv run ruff check src/          # lint
-uv run ruff check --fix src/    # autofix
-uv run ruff format src/         # format
-uv run pytest                   # tests (when added)
+uv run ruff check .          # lint everything
+uv run ruff check --fix .    # autofix
+uv run ruff format .         # format
+uv run pytest                # full pytest suite
+uv run pytest -v test/test_mqtt_service.py   # run one module
 ```
 
 ## Example REST calls
