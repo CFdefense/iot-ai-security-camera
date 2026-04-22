@@ -15,6 +15,10 @@ ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 CAPTURES_DIR = PROJECT_ROOT / "captures"
 DB_PATH = Path(os.environ.get("CAMERA_DB_PATH", PROJECT_ROOT / "whitelist.sqlite"))
 
+# Serial Configuration
+SERIAL_PORT = os.environ.get("SERIAL_PORT", "/dev/ttyACM0")
+SERIAL_BAUD = int(os.environ.get("SERIAL_BAUD", "115200"))
+
 # MQTT configuration
 MQTT_HOST = os.environ.get("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
