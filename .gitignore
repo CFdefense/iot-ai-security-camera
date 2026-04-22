@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+artifacts/
+captures/
+*.sqlite
+
+# uv / ruff
+.uv/
+.ruff_cache/
