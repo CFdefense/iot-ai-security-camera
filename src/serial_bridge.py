@@ -12,8 +12,6 @@ import threading
 
 log = logging.getLogger("serial_bridge")
 
-RAW_SERIAL_LOG = config.ARTIFACTS_DIR / "arduino_serial.jsonl"
-
 def should_trigger(msg: dict) -> bool:
     """
     Return True only for confirmed Arduino trigger events.
@@ -29,13 +27,17 @@ def run_serial_bridge(mqtt_service: MqttPublisher, stop_event: threading.Event, 
     """
     log.info("opening serial port %s at %s baud", serial_port, baudrate)
 
+    if timeout is None:
+        timeout = config.SERIAL_TIMEOUT
+    
     try:
         ser = serial.Serial(serial_port, baudrate=baudrate, timeout=timeout)
     except Exception as e:
         log.exception("failed to open serial port")
         return
-
-    RAW_SERIAL_LOG.parent.mkdir(parents=True, exist_ok=True)
+    
+    log_path = config.ARTIFACTS_DIR / "arduino_serial.jsonl"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
         while not stop_event.is_set():
@@ -48,7 +50,7 @@ def run_serial_bridge(mqtt_service: MqttPublisher, stop_event: threading.Event, 
                 if not text:
                     continue
 
-                with RAW_SERIAL_LOG.open("a", encoding="utf-8") as f:
+                with log_path.open("a", encoding="utf-8") as f:
                     f.write(text + "\n")
 
                 msg = json.loads(text)
