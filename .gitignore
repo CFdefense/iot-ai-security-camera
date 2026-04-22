@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+artifacts/
+captures/
+*.sqlite
+.pytest_cache/
+
+# uv / ruff
+.uv/
+.ruff_cache/
