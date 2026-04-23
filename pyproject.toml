@@ -11,6 +11,7 @@ authors = [
 dependencies = [
     "paho-mqtt>=2.1.0,<3",
     "Flask>=3.0.3,<4",
+    "python-dotenv>=1.0.1,<2",
 ]
 
 [project.optional-dependencies]

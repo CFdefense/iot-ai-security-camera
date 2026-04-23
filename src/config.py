@@ -10,7 +10,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 CAPTURES_DIR = PROJECT_ROOT / "captures"
 DB_PATH = Path(os.environ.get("CAMERA_DB_PATH", PROJECT_ROOT / "whitelist.sqlite"))

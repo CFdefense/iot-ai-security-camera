@@ -1,0 +1,7 @@
+{"event_type":"user_registered","user_id":2,"name":"Christian Farrell","image_ref":"/Users/cfarrell/Documents/iot-ai-security-camera-1/captures/2026-04-23_022246.jpg","topic":"home/security/events","timestamp":"2026-04-23T02:22:46Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":60,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-23T02:23:14Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":120,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-23T02:24:14Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":180,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-23T02:25:14Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":240,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-23T02:26:14Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":300,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-23T02:27:14Z","sensor_id":"front_door_cam"}{"event_type":"heartbeat","uptime_sec":540,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-23T02:31:14Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":600,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-23T02:32:14Z","sensor_id":"front_door_cam"}
