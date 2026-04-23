@@ -33,6 +33,7 @@ from flask import Flask, jsonify, request
 
 from . import capture, config, db
 from .mqtt_service import MqttPublisher, MqttService
+from .serial_bridge import run_serial_bridge
 
 log = logging.getLogger("api_service")
 
@@ -148,6 +149,19 @@ def main() -> None:
         daemon=True,
     )
     hb_thread.start()
+    
+    serial_thread = threading.Thread(
+        target=run_serial_bridge,
+        kwargs={
+            "mqtt_service": mqtt_svc,
+            "stop_event": stop_event,
+            "serial_port": config.SERIAL_PORT,
+            "baudrate": config.SERIAL_BAUD,
+            "timeout": config.SERIAL_TIMEOUT,
+        },
+        daemon=True,
+    )
+    serial_thread.start()
 
     app = create_app(mqtt_svc)
     try:
