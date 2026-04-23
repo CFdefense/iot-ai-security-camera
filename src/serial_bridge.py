@@ -1,41 +1,45 @@
+"""Read newline-delimited JSON from Arduino and run detection on trigger events."""
+
 import json
-import time
-from pathlib import Path
-import serial
 import logging
-
-from . import config, detection
-
-from .mqtt_service import MqttPublisher
 import threading
 
+import serial
+
+from . import config, detection
+from .mqtt_service import MqttPublisher
 
 log = logging.getLogger("serial_bridge")
 
+
 def should_trigger(msg: dict) -> bool:
-    """
-    Return True only for confirmed Arduino trigger events.
+    """Return True only for confirmed Arduino trigger events.
+
     Adjust this logic to match your actual JSON schema.
     """
     event_type = msg.get("event_type")
     return event_type in {"proximity_detected", "confirmed_trigger", "sensor_triggered"}
 
 
-def run_serial_bridge(mqtt_service: MqttPublisher, stop_event: threading.Event, serial_port: str, baudrate: int, timeout: float = config.SERIAL_TIMEOUT) -> None:
-    """
-    Read newline-delimited JSON from the Arduino and trigger detection when needed.
-    """
+def run_serial_bridge(
+    mqtt_service: MqttPublisher,
+    stop_event: threading.Event,
+    serial_port: str,
+    baudrate: int,
+    timeout: float = config.SERIAL_TIMEOUT,
+) -> None:
+    """Read newline-delimited JSON from the Arduino and trigger detection when needed."""
     log.info("opening serial port %s at %s baud", serial_port, baudrate)
 
     if timeout is None:
         timeout = config.SERIAL_TIMEOUT
-    
+
     try:
         ser = serial.Serial(serial_port, baudrate=baudrate, timeout=timeout)
-    except Exception as e:
+    except Exception:
         log.exception("failed to open serial port")
         return
-    
+
     log_path = config.ARTIFACTS_DIR / "arduino_serial.jsonl"
     log_path.parent.mkdir(parents=True, exist_ok=True)
 

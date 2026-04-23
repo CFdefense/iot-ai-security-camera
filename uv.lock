@@ -93,6 +93,7 @@ source = { editable = "." }
 dependencies = [
     { name = "flask" },
     { name = "paho-mqtt" },
+    { name = "pyserial" },
     { name = "python-dotenv" },
 ]
 
@@ -100,7 +101,6 @@ dependencies = [
 pi = [
     { name = "face-recognition" },
     { name = "opencv-python-headless" },
-    { name = "pyserial" },
 ]
 
 [package.dev-dependencies]
@@ -115,7 +115,7 @@ requires-dist = [
     { name = "flask", specifier = ">=3.0.3,<4" },
     { name = "opencv-python-headless", marker = "extra == 'pi'", specifier = ">=4.9" },
     { name = "paho-mqtt", specifier = ">=2.1.0,<3" },
-    { name = "pyserial", marker = "extra == 'pi'", specifier = ">=3.5" },
+    { name = "pyserial", specifier = ">=3.5" },
     { name = "python-dotenv", specifier = ">=1.0.1,<2" },
 ]
 provides-extras = ["pi"]

@@ -1,55 +1,64 @@
 import json
 import threading
 
+import pytest
+
 from src import serial_bridge
 
 
 class FakeSerial:
+    """Stand-in for ``pyserial`` ``Serial`` that feeds scripted lines in tests."""
+
     def __init__(self, lines, stop_event):
-        self._lines = [
-            ln if isinstance(ln, bytes) else (ln + "\n").encode("utf-8")
-            for ln in lines
-        ]
+        self._lines = [ln if isinstance(ln, bytes) else (ln + "\n").encode("utf-8") for ln in lines]
         self._stop_event = stop_event
         self.closed = False
 
     def readline(self):
+        """Return the next queued line, or end the bridge loop when the queue is empty."""
         if self._lines:
             return self._lines.pop(0)
         self._stop_event.set()
         return b""
 
     def close(self):
+        """Mark the fake port as closed (mirrors real ``Serial.close``)."""
         self.closed = True
 
 
 class RecordingMqtt:
+    """MqttPublisher fake: records :meth:`publish_event` calls; other protocol members are no-ops.
+
+    Serial tests monkeypatch :func:`src.detection.handle_trigger`, so
+    :meth:`publish_alert` is not exercised; we still provide it (and
+    :attr:`detection_enabled` / :meth:`set_detection`) to match
+    :class:`src.mqtt_service.MqttPublisher` if a test ever calls the real
+    :func:`src.detection.handle_trigger` without a stub.
+    """
+
     def __init__(self):
         self.events = []
-        self.alerts = []
 
     @property
     def detection_enabled(self):
+        """True so :func:`src.detection.handle_trigger` does not early-exit on disabled detection."""
         return True
 
     def publish_event(self, event_type, data=None):
+        """Append a ``(event_type, data)`` tuple to :attr:`events`."""
         self.events.append((event_type, data or {}))
 
     def publish_alert(self, *, event_type, confidence, image_ref, extra=None):
-        self.alerts.append(
-            {
-                "event_type": event_type,
-                "confidence": confidence,
-                "image_ref": str(image_ref),
-                "extra": extra or {},
-            }
-        )
+        """Protocol hook; not used in these tests (see class docstring)."""
+        pass
 
     def set_detection(self, enabled: bool):
+        """Protocol hook; the serial bridge does not toggle detection."""
         pass
 
 
 def test_should_trigger_accepts_only_expected_events():
+    """``should_trigger`` is True only for the expected ``event_type`` values."""
     assert serial_bridge.should_trigger({"event_type": "proximity_detected"}) is True
     assert serial_bridge.should_trigger({"event_type": "confirmed_trigger"}) is True
     assert serial_bridge.should_trigger({"event_type": "sensor_triggered"}) is True
@@ -59,6 +68,7 @@ def test_should_trigger_accepts_only_expected_events():
 
 
 def test_run_serial_bridge_logs_and_triggers_detection(monkeypatch, isolated_paths):
+    """A confirmed trigger line runs detection, logs JSON, and publishes MQTT events."""
     stop = threading.Event()
     mqtt = RecordingMqtt()
 
@@ -95,7 +105,9 @@ def test_run_serial_bridge_logs_and_triggers_detection(monkeypatch, isolated_pat
     assert fake_serial.closed is True
 
 
-def test_run_serial_bridge_ignores_non_trigger_event(monkeypatch, isolated_paths):
+@pytest.mark.usefixtures("isolated_paths")
+def test_run_serial_bridge_ignores_non_trigger_event(monkeypatch):
+    """Non-matching events are logged to MQTT as raw lines but do not start detection."""
     stop = threading.Event()
     mqtt = RecordingMqtt()
 
@@ -121,7 +133,9 @@ def test_run_serial_bridge_ignores_non_trigger_event(monkeypatch, isolated_paths
     assert not any(evt[0] == "detection_result" for evt in mqtt.events)
 
 
-def test_run_serial_bridge_bad_json_publishes_error(monkeypatch, isolated_paths):
+@pytest.mark.usefixtures("isolated_paths")
+def test_run_serial_bridge_bad_json_publishes_error(monkeypatch):
+    """Malformed JSON from the line reader publishes a ``serial_json_error`` event."""
     stop = threading.Event()
     mqtt = RecordingMqtt()
 
