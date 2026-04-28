@@ -2,10 +2,11 @@
 // SEN -> ARD:
 // GND -> GND
 //  +  -> 5V
-// S/OUT -> Digital 2
+// S/OUT -> Digital 8
+// EN -> Digital 9
 
-const int PIN_AVOID = 2;
-const int OBSTACLE_ACTIVE = LOW;   // change to HIGH if your sensor is inverted
+const int PIN_AVOID = 8;
+const int OBSTACLE_ACTIVE = HIGH;   // change to HIGH if your sensor is inverted
 const int STABLE_COUNT_REQUIRED = 3;
 const unsigned long PERIOD_MS = 100;
 const unsigned long HEARTBEAT_PERIOD_MS = 5000;   // Arduino sends every 5 seconds
