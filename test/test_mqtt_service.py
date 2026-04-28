@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from src.gateway import config
+from src.core import config
 
 from src import mqtt_service
 

@@ -10,9 +10,9 @@ from typing import Any
 
 import serial
 
+from ..data import db
+from ..integrations.serial_bridge import format_serial_open_error
 from . import config
-from .persistence import db
-from .serial_bridge import format_serial_open_error
 
 log = logging.getLogger("startup_banner")
 

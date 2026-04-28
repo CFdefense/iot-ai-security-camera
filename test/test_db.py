@@ -1,6 +1,6 @@
 import pytest
 
-from src.gateway.persistence import db
+from src.data import db
 
 
 @pytest.fixture

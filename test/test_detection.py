@@ -1,8 +1,8 @@
 import pytest
 
-from src.gateway.persistence import db
-from src.gateway.picam import imaging
-from src.gateway.services import proximity
+from src.camera.picam import imaging
+from src.camera.services import proximity
+from src.data import db
 
 
 @pytest.fixture(autouse=True)
@@ -62,6 +62,11 @@ def test_trigger_with_unknown_face_publishes_alert(monkeypatch):
     assert mq.alerts[0]["event_type"] == "unknown_face_detected"
     # proximity event must also fire before the alert, for monitoring
     assert mq.events[0][0] == "proximity_detected"
+    with db.connect() as conn:
+        rows = db.list_recent_detection_alerts(conn, limit=5)
+        assert rows[0]["event_type"] == "unknown_face_detected"
+        assert rows[0]["outcome"] == "unknown"
+        assert rows[0]["has_capture_image"] is True
 
 
 def test_trigger_with_known_face_grants_access(monkeypatch):
@@ -78,6 +83,12 @@ def test_trigger_with_known_face_grants_access(monkeypatch):
     assert mq.events[-1][0] == "access_granted"
     assert mq.events[-1][1]["user"] == "alice"
     assert not mq.alerts
+    with db.connect() as conn:
+        rows = db.list_recent_detection_alerts(conn, limit=5)
+        assert rows[0]["event_type"] == "access_granted"
+        assert rows[0]["matched_user_name"] == "alice"
+        raw = db.get_detection_alert_image(conn, int(rows[0]["id"]))
+        assert raw is not None
 
 
 def test_trigger_with_low_quality_capture_logs_event(monkeypatch):
@@ -92,3 +103,7 @@ def test_trigger_with_low_quality_capture_logs_event(monkeypatch):
     assert result["status"] == "low_quality"
     assert any(e[0] == "low_quality_capture" for e in mq.events)
     assert not mq.alerts
+    with db.connect() as conn:
+        rows = db.list_recent_detection_alerts(conn, limit=5)
+        assert rows[0]["event_type"] == "low_quality_capture"
+        assert rows[0]["reason"] == "no face detected"

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..persistence import db
+from ...data import db
 from ..picam import imaging
 
 

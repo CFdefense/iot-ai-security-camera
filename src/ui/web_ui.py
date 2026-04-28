@@ -19,10 +19,10 @@ from flask import (
     url_for,
 )
 
-from . import config
-from .component_status import build_dashboard_status
-from .persistence import db
-from .services.register_user import capture_embed_and_save
+from ..core import config
+from ..core.component_status import build_dashboard_status
+from ..data import db
+from ..camera.services.register_user import capture_embed_and_save
 
 log = logging.getLogger("web_ui")
 
@@ -57,6 +57,23 @@ def init_app(app: Flask) -> None:
     secret = config.SESSION_SECRET or "unset-use-SESSION_SECRET"
     app.secret_key = secret
     init_template_filters(app)
+
+    def _render_dashboard(error: str | None = None, *, status_code: int = 200):
+        with db.connect() as conn:
+            users = db.list_users(conn)
+            detection_alerts = db.list_recent_detection_alerts(conn, limit=40)
+        return (
+            render_template(
+                "dashboard.html",
+                users=users,
+                detection_alerts=detection_alerts,
+                error=error,
+                mqtt_stream_url=url_for("dashboard_events_stream"),
+                status_json_url=url_for("dashboard_status_json"),
+                status_topic=config.TOPIC_STATUS,
+            ),
+            status_code,
+        )
 
     @app.get("/")
     def root():
@@ -149,68 +166,25 @@ def init_app(app: Flask) -> None:
     @app.get("/dashboard")
     @_login_required
     def dashboard():
-        with db.connect() as conn:
-            users = db.list_users(conn)
-        return render_template(
-            "dashboard.html",
-            users=users,
-            mqtt_stream_url=url_for("dashboard_events_stream"),
-            status_json_url=url_for("dashboard_status_json"),
-            status_topic=config.TOPIC_STATUS,
-        )
+        body, code = _render_dashboard()
+        if code == 200:
+            return body
+        return body, code
 
     @app.post("/dashboard/register")
     @_login_required
     def dashboard_register():
-        mqtt_stream_url = url_for("dashboard_events_stream")
-        status_json_url = url_for("dashboard_status_json")
         name = (request.form.get("name") or "").strip()
         if not name:
-            with db.connect() as conn:
-                users = db.list_users(conn)
-            return (
-                render_template(
-                    "dashboard.html",
-                    users=users,
-                    error="Name is required",
-                    mqtt_stream_url=mqtt_stream_url,
-                    status_json_url=status_json_url,
-                    status_topic=config.TOPIC_STATUS,
-                ),
-                400,
-            )
+            return _render_dashboard("Name is required", status_code=400)
 
         try:
             user_id, _jpeg = capture_embed_and_save(name)
         except ValueError as e:
-            with db.connect() as conn:
-                users = db.list_users(conn)
-            return (
-                render_template(
-                    "dashboard.html",
-                    users=users,
-                    error=str(e),
-                    mqtt_stream_url=mqtt_stream_url,
-                    status_json_url=status_json_url,
-                    status_topic=config.TOPIC_STATUS,
-                ),
-                422,
-            )
+            return _render_dashboard(str(e), status_code=422)
         except Exception as e:
             log.exception("dashboard register capture failed")
-            with db.connect() as conn:
-                users = db.list_users(conn)
-            return (
-                render_template(
-                    "dashboard.html",
-                    users=users,
-                    error=f"capture failed: {e}",
-                    mqtt_stream_url=mqtt_stream_url,
-                    status_json_url=status_json_url,
-                    status_topic=config.TOPIC_STATUS,
-                ),
-                500,
-            )
+            return _render_dashboard(f"capture failed: {e}", status_code=500)
 
         mq = app.config.get("mqtt")
         if mq is not None:
@@ -229,4 +203,13 @@ def init_app(app: Flask) -> None:
         if not raw:
             return Response("No registration photo stored.", status=404, mimetype="text/plain")
 
+        return Response(raw, mimetype="image/jpeg")
+
+    @app.get("/dashboard/alerts/<int:alert_id>/photo")
+    @_login_required
+    def dashboard_alert_photo(alert_id: int):
+        with db.connect() as conn:
+            raw = db.get_detection_alert_image(conn, alert_id)
+        if not raw:
+            return Response("No alert image stored.", status=404, mimetype="text/plain")
         return Response(raw, mimetype="image/jpeg")

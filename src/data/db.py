@@ -17,7 +17,7 @@ import time
 from collections.abc import Iterable
 from pathlib import Path
 
-from .. import config
+from ..core import config
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -30,6 +30,18 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS dashboard_users (
     email          TEXT PRIMARY KEY,
     password_hash  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS detection_alerts (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type         TEXT NOT NULL,
+    outcome            TEXT NOT NULL,
+    confidence         REAL,
+    image_ref          TEXT NOT NULL,
+    capture_image      BLOB,
+    matched_user_name  TEXT,
+    reason             TEXT,
+    created_ts         INTEGER NOT NULL
 );
 """
 
@@ -49,6 +61,7 @@ def connect(db_path: Path | None = None) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA)
     _migrate_users_registration_image(conn)
+    _migrate_detection_alerts_capture_image(conn)
     conn.commit()
     return conn
 
@@ -57,6 +70,12 @@ def _migrate_users_registration_image(conn: sqlite3.Connection) -> None:
     cols = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
     if "registration_image" not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN registration_image BLOB")
+
+
+def _migrate_detection_alerts_capture_image(conn: sqlite3.Connection) -> None:
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(detection_alerts)").fetchall()}
+    if cols and "capture_image" not in cols:
+        conn.execute("ALTER TABLE detection_alerts ADD COLUMN capture_image BLOB")
 
 
 def _password_hash(password: str) -> str:
@@ -157,6 +176,73 @@ def get_registration_image(conn: sqlite3.Connection, user_id: int) -> bytes | No
     if row is None or row["registration_image"] is None:
         return None
     return bytes(row["registration_image"])
+
+
+def record_detection_alert(
+    conn: sqlite3.Connection,
+    *,
+    event_type: str,
+    outcome: str,
+    image_ref: str,
+    confidence: float | None = None,
+    capture_image: bytes | None = None,
+    matched_user_name: str | None = None,
+    reason: str | None = None,
+) -> int:
+    """Store one trigger outcome row and return the new alert id."""
+    cur = conn.execute(
+        """
+        INSERT INTO detection_alerts (
+            event_type, outcome, confidence, image_ref, capture_image,
+            matched_user_name, reason, created_ts
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            event_type,
+            outcome,
+            float(confidence) if confidence is not None else None,
+            image_ref,
+            capture_image,
+            matched_user_name,
+            reason,
+            int(time.time()),
+        ),
+    )
+    conn.commit()
+    return int(cur.lastrowid or 0)
+
+
+def list_recent_detection_alerts(conn: sqlite3.Connection, *, limit: int = 40) -> list[dict]:
+    """Newest-first list of persisted detection outcomes for dashboard UI."""
+    lim = max(1, int(limit))
+    rows = conn.execute(
+        """
+        SELECT
+            id, event_type, outcome, confidence, image_ref, matched_user_name, reason, created_ts,
+            CASE WHEN capture_image IS NOT NULL THEN 1 ELSE 0 END AS has_capture_image
+        FROM detection_alerts
+        ORDER BY id DESC
+        LIMIT ?
+        """,
+        (lim,),
+    ).fetchall()
+    out: list[dict] = []
+    for r in rows:
+        d = dict(r)
+        d["has_capture_image"] = bool(d.pop("has_capture_image", 0))
+        out.append(d)
+    return out
+
+
+def get_detection_alert_image(conn: sqlite3.Connection, alert_id: int) -> bytes | None:
+    """Return raw JPEG bytes for a detection alert capture, if stored."""
+    row = conn.execute(
+        "SELECT capture_image FROM detection_alerts WHERE id = ?",
+        (alert_id,),
+    ).fetchone()
+    if row is None or row["capture_image"] is None:
+        return None
+    return bytes(row["capture_image"])
 
 
 def _cosine(a: list[float], b: list[float]) -> float:

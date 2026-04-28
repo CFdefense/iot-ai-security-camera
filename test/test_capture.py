@@ -1,4 +1,4 @@
-from src.gateway.picam import imaging
+from src.camera.picam import imaging
 
 
 def test_capture_frame_jpeg_returns_minimal_jpeg_bytes():

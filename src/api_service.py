@@ -32,13 +32,14 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request
 
-from .gateway import config, web_ui
-from .gateway.event_hub import EventHub
-from .gateway.persistence import db
-from .gateway.serial_bridge import run_serial_bridge
-from .gateway.services.register_user import capture_embed_and_save
-from .gateway.startup_banner import log_banner
+from .camera.services.register_user import capture_embed_and_save
+from .core import config
+from .core.event_hub import EventHub
+from .core.startup_banner import log_banner
+from .data import db
+from .integrations.serial_bridge import run_serial_bridge
 from .mqtt_service import MqttPublisher, MqttService
+from .ui import web_ui
 
 log = logging.getLogger("api_service")
 
@@ -71,7 +72,7 @@ def create_app(mqtt_service: MqttPublisher | None = None, *, event_hub: EventHub
     with db.connect() as conn:
         db.reset_dashboard_credentials_from_env(conn)
 
-    pkg = Path(__file__).resolve().parent / "gateway"
+    pkg = Path(__file__).resolve().parent / "ui"
     app = Flask(__name__, template_folder=str(pkg / "templates"))
     app.config["mqtt"] = mqtt_service
     app.config["event_hub"] = event_hub if event_hub is not None else EventHub()

@@ -70,3 +70,13 @@
 {"event_type":"heartbeat","uptime_sec":0,"detection_enabled":true,"connected":false,"topic":"home/security/status","timestamp":"2026-04-28T00:56:28Z","sensor_id":"front_door_cam"}
 {"event_type":"heartbeat","uptime_sec":0,"detection_enabled":true,"connected":false,"topic":"home/security/status","timestamp":"2026-04-28T00:57:40Z","sensor_id":"front_door_cam"}
 {"event_type":"heartbeat","uptime_sec":0,"detection_enabled":true,"connected":false,"topic":"home/security/status","timestamp":"2026-04-28T00:57:49Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":0,"detection_enabled":true,"connected":false,"topic":"home/security/status","timestamp":"2026-04-28T19:17:24Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":60,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-28T19:18:24Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":120,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-28T19:19:24Z","sensor_id":"front_door_cam"}
+{"event_type":"user_registered","user_id":4,"name":"yolo","topic":"home/security/events","timestamp":"2026-04-28T19:19:44Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":180,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-28T19:20:24Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":240,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-28T19:21:24Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":300,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-28T19:22:24Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":360,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-28T19:23:24Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":420,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-28T19:24:24Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":480,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-28T19:25:24Z","sensor_id":"front_door_cam"}

@@ -1,9 +1,0 @@
-{"event_type":"heartbeat","uptime_sec":0,"detection_enabled":true,"connected":false,"topic":"home/security/status","timestamp":"2026-04-28T00:49:58Z","sensor_id":"front_door_cam"}
-{"event_type":"heartbeat","uptime_sec":0,"detection_enabled":true,"connected":false,"topic":"home/security/status","timestamp":"2026-04-28T00:50:19Z","sensor_id":"front_door_cam"}
-{"event_type":"heartbeat","uptime_sec":60,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-28T00:51:19Z","sensor_id":"front_door_cam"}
-{"event_type":"heartbeat","uptime_sec":120,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-28T00:52:19Z","sensor_id":"front_door_cam"}
-{"event_type":"heartbeat","uptime_sec":0,"detection_enabled":true,"connected":false,"topic":"home/security/status","timestamp":"2026-04-28T00:53:14Z","sensor_id":"front_door_cam"}
-{"event_type":"heartbeat","uptime_sec":60,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-28T00:54:14Z","sensor_id":"front_door_cam"}
-{"event_type":"heartbeat","uptime_sec":0,"detection_enabled":true,"connected":false,"topic":"home/security/status","timestamp":"2026-04-28T00:54:42Z","sensor_id":"front_door_cam"}
-{"event_type":"heartbeat","uptime_sec":60,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-28T00:55:42Z","sensor_id":"front_door_cam"}
-{"event_type":"heartbeat","uptime_sec":0,"detection_enabled":true,"connected":false,"topic":"home/security/status","timestamp":"2026-04-28T00:55:46Z","sensor_id":"front_door_cam"}

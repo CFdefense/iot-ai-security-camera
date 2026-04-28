@@ -1,7 +1,8 @@
 import pytest
 
 from src import api_service
-from src.gateway import config
+from src.core import config
+from src.data import db
 
 
 class FakeMqtt:
@@ -103,6 +104,7 @@ def test_dashboard_status_json_ok_when_logged_in(monkeypatch, isolated_paths, fa
     body = r.get_json()
     assert body.get("last_status_at") == "2026-04-01T00:00:00Z"
     assert body.get("status_topic") == "home/security/status"
+
 
 def test_healthz_is_public_and_reports_detection_state(client):
     """/healthz has no API-key check (so kube/monitoring can probe it) and reports the detection flag."""
@@ -270,3 +272,35 @@ def test_dashboard_login_uses_session_not_user_api_key(monkeypatch, isolated_pat
         )
         assert r2.status_code == 302
         assert "/dashboard" in (r2.headers.get("Location") or "")
+
+
+def test_dashboard_alert_photo_requires_login(monkeypatch, isolated_paths):
+    """Alert photo route is session-protected like other dashboard endpoints."""
+    monkeypatch.setattr(config, "API_KEY", "test-key")
+    app = api_service.create_app(FakeMqtt())
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        assert c.get("/dashboard/alerts/1/photo").status_code == 302
+
+
+def test_dashboard_alert_photo_ok_when_logged_in(monkeypatch, isolated_paths, fake_mqtt):
+    """Logged-in dashboard users can fetch stored JPEG bytes for detection alerts."""
+    monkeypatch.setattr(config, "API_KEY", "device-secret")
+    monkeypatch.setenv("USER_EMAIL", "u@example.local")
+    monkeypatch.setenv("USER_PASSWORD", "pw")
+    with db.connect() as conn:
+        alert_id = db.record_detection_alert(
+            conn,
+            event_type="unknown_face_detected",
+            outcome="unknown",
+            image_ref="inline:test",
+            capture_image=b"\xff\xd8sample\xff\xd9",
+        )
+
+    app = api_service.create_app(fake_mqtt)
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        c.post("/login", data={"email": "u@example.local", "password": "pw"})
+        r = c.get(f"/dashboard/alerts/{alert_id}/photo")
+    assert r.status_code == 200
+    assert r.mimetype == "image/jpeg"

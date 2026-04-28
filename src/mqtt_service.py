@@ -29,7 +29,7 @@ from typing import Any, Protocol
 
 import paho.mqtt.client as mqtt
 
-from .gateway import config
+from .core import config
 
 log = logging.getLogger("mqtt_service")
 
