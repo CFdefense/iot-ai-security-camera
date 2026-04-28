@@ -6,9 +6,9 @@ import threading
 
 import serial
 
-from ..mqtt_service import MqttPublisher
-from ..core import config
 from ..camera.services import proximity
+from ..core import config
+from ..mqtt_service import MqttPublisher
 
 log = logging.getLogger("serial_bridge")
 

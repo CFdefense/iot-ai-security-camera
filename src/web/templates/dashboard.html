@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ai-security-system dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}" />
+  </head>
+  <body>
+    <template id="pulse-icon-tpl">
+      <svg
+        class="pulse-icon-svg"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <polyline
+          points="2 12 5 12 8 17 11 9 13 21 15 10 17 17 18.5 12 22 12"
+        />
+      </svg>
+    </template>
+    <div id="toast-stack" aria-live="polite"></div>
+
+    <header class="shell">
+      <div class="brand-title">
+        <div class="project">ai-security-system</div>
+        <div class="headline">Security dashboard</div>
+        <div class="subtitle">Manage users, monitor detections, and control live scanning</div>
+      </div>
+      <div class="toolbar">
+        <div class="status-wrap">
+          <button
+            type="button"
+            id="status-toggle"
+            title="Show the latest MQTT snapshot from home/security/status"
+            aria-label="MQTT status heartbeat snapshot"
+            aria-expanded="false"
+            aria-controls="status-panel"
+          ></button>
+          <div
+            id="status-panel"
+            role="region"
+            aria-label="MQTT status snapshot"
+          >
+            <div class="bh status-panel-simple">
+              <div>Status</div>
+              <div class="muted">Last updated</div>
+              <div id="status-ts-line">—</div>
+              <div class="muted">
+                Components · <code>{{ status_topic }}</code>
+              </div>
+              <div id="status-payload-expl"></div>
+              <div id="status-components" class="status-components"></div>
+            </div>
+          </div>
+        </div>
+        <div class="bell-wrap">
+          <button
+            type="button"
+            id="bell-toggle"
+            title="Open live MQTT notifications from home/security/events"
+            aria-label="Open MQTT events notifications"
+            aria-expanded="false"
+            aria-controls="bell-panel"
+          >
+            <span class="bell-ico" aria-hidden="true">
+              <svg
+                class="bell-icon-svg"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            </span>
+            <span id="bell-badge" hidden>0</span>
+          </button>
+          <div id="bell-panel" role="region" aria-label="MQTT notifications">
+            <div class="bh">Notifications</div>
+            <ul id="bell-list"></ul>
+            <div id="bell-empty">No activity yet.</div>
+          </div>
+        </div>
+        <form class="logout" method="post" action="{{ url_for('logout') }}">
+          <button
+            id="logout-btn"
+            type="submit"
+            class="logout-icon-btn"
+            title="Sign out and return to login"
+            aria-label="Sign out"
+          >
+            <svg
+              class="logout-icon-svg"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
+        </form>
+      </div>
+    </header>
+
+    {% if error %}
+    <div class="banner">{{ error }}</div>
+    {% endif %}
+
+    <div class="dashboard-layout">
+      <div class="dashboard-main">
+        <section>
+          <div class="hero-grid">
+            <div class="hero-card">
+              <div class="hero-label">Registered users</div>
+              <div id="registered-users-count" class="hero-value">{{ users|length }}</div>
+            </div>
+            <div class="hero-card">
+              <div class="hero-label">Detection events</div>
+              <div class="hero-value">{{ detection_alerts|length }}</div>
+            </div>
+            <div class="hero-card">
+              <div class="hero-label">Detection service</div>
+              <div id="detection-service-state" class="hero-value {% if detection_enabled %}active{% else %}inactive{% endif %}">
+                {% if detection_enabled is none %}Unknown{% elif detection_enabled %}Online{% else %}Paused{% endif %}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="control-grid">
+          <div class="panel register-box">
+            <h2>Register a user</h2>
+            <p class="muted" style="margin: 0 0 0.5rem; font-size: 0.84rem">
+              Add someone to your trusted users list.
+            </p>
+            <form id="register-user-form" method="post" action="{{ url_for('dashboard_register') }}">
+              <label for="name">Full name</label>
+              <input id="name" name="name" type="text" placeholder="Jane Doe" required />
+              <button class="primary" type="submit">Capture and register</button>
+            </form>
+          </div>
+
+          <div class="panel">
+            <h2>Detection service</h2>
+            <p class="muted" style="margin: 0; font-size: 0.84rem">
+              Pause or resume live face detection without restarting the API service.
+            </p>
+            <form id="detection-toggle-form" class="detection-form" method="post" action="{{ url_for('dashboard_detection_toggle') }}">
+              {% if detection_enabled %}
+              <input type="hidden" name="enabled" value="off" />
+              <button type="submit" class="toggle-btn on">Turn detection off</button>
+              {% else %}
+              <input type="hidden" name="enabled" value="on" />
+              <button type="submit" class="toggle-btn off">Turn detection on</button>
+              {% endif %}
+            </form>
+          </div>
+        </section>
+
+        <section class="panel-pair">
+          <aside class="alerts-panel" aria-label="Registered users">
+            <h2>Registered users</h2>
+            <div class="muted" style="font-size: 0.78rem">
+              Current whitelist entries and registration snapshots.
+            </div>
+            {% if users|length == 0 %}
+            <p class="empty" style="margin-top: 0.7rem">No registered users yet.</p>
+            {% else %}
+            <div class="users-list">
+              {% for u in users %}
+              <article class="alert-card user-card" data-user-id="{{ u.id }}">
+                {% if u.has_registration_image %}
+                <div class="user-photo-wrap">
+                  <img
+                    src="{{ url_for('user_registration_photo', user_id=u.id) }}"
+                    alt="Registration photo"
+                  />
+                  <form
+                    class="unregister-user-form"
+                    method="post"
+                    action="{{ url_for('dashboard_unregister_user', user_id=u.id) }}"
+                  >
+                    <button
+                      type="submit"
+                      class="unregister-btn"
+                      title="Unregister user"
+                      aria-label="Unregister {{ u.name }}"
+                    >
+                      ×
+                    </button>
+                  </form>
+                </div>
+                {% endif %}
+                <div class="alert-meta">
+                  <div class="alert-type">registered user</div>
+                  <div class="alert-main">{{ u.name }}</div>
+                  <div class="alert-sub">Registered {{ u.created_ts | registered_date }}</div>
+                </div>
+              </article>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </aside>
+
+          <aside class="alerts-panel" aria-label="Recent detection alerts">
+            <h2>Recent detection alerts</h2>
+            <div class="muted" style="font-size: 0.78rem">
+              See the latest camera detections.
+            </div>
+            {% if detection_alerts|length == 0 %}
+            <p class="empty" style="margin-top: 0.7rem">No detection alerts yet.</p>
+            {% else %}
+            <div class="alerts-list">
+              {% for a in detection_alerts %}
+              <article class="alert-card">
+                {% if a.has_capture_image %}
+                <img
+                  src="{{ url_for('dashboard_alert_photo', alert_id=a.id) }}"
+                  alt="Detection alert capture"
+                />
+                {% endif %}
+                <div class="alert-meta">
+                  <div class="alert-type">{{ a.event_type | replace("_", " ") }}</div>
+                  <div class="alert-main">
+                    {% if a.matched_user_name %}
+                    {{ a.matched_user_name }}
+                    {% elif a.outcome == "unknown" %}
+                    Unknown person detected
+                    {% elif a.outcome == "low_quality" %}
+                    Low quality capture
+                    {% else %}
+                    {{ a.outcome }}
+                    {% endif %}
+                    {% if a.confidence is not none %}
+                    · {{ "%.2f"|format(a.confidence) }}
+                    {% endif %}
+                  </div>
+                  <div class="alert-sub">
+                    {{ a.created_ts | registered_date }}
+                    {% if a.reason %} · {{ a.reason }}{% endif %}
+                  </div>
+                </div>
+              </article>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </aside>
+        </section>
+      </div>
+    </div>
+
+    <script id="dashboard-ui-config" type="application/json">
+      {{ {"mqtt_stream_url": mqtt_stream_url, "status_json_url": status_json_url, "recent_events_url": url_for("dashboard_recent_events_json")} | tojson }}
+    </script>
+    <script defer src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+  </body>
+</html>

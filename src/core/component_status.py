@@ -16,10 +16,10 @@ def build_dashboard_status(app: Flask) -> dict[str, Any]:
     """
     mq = app.config.get("mqtt")
     if mq is None:
-        return {"last_status_at": None, "status_topic": config.TOPIC_STATUS}
+        return {"last_status_at": None, "status_topic": config.TOPIC_STATUS, "status_payload": None}
 
     getter = getattr(mq, "dashboard_status_bundle", None)
     if callable(getter):
         return getter()  # type: ignore
 
-    return {"last_status_at": None, "status_topic": config.TOPIC_STATUS}
+    return {"last_status_at": None, "status_topic": config.TOPIC_STATUS, "status_payload": None}

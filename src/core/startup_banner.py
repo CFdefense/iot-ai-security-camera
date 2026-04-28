@@ -70,17 +70,35 @@ def format_banner_lines(mqtt_svc: Any) -> list[str]:
     sep_dash = "+" + "-" * 70 + "+"
 
     db_ok, detail = describe_database()
+    mqtt_line = mqtt_broker_snapshot(mqtt_svc)
+    mqtt_up = mqtt_line.startswith("connected ")
+    serial_line = describe_serial_hardware()
+    # Camera/Sensor are both tied to serial hardware presence for now.
+    cam_sensor_up = serial_line.startswith("OK ")
 
-    prefix = "OK " if db_ok else "FAIL "
-    db_line = prefix + detail
+    errors: list[str] = []
+    if not db_ok:
+        errors.append("database: " + detail)
+    if not mqtt_up:
+        errors.append("mqtt: " + mqtt_line)
+    if not cam_sensor_up:
+        errors.append("camera/sensor: " + serial_line)
 
     return [
         sep_eq,
         _format_line("camera-service startup"),
         sep_eq,
-        _format_line("Database (SQLite): " + db_line),
-        _format_line("MQTT broker: " + mqtt_broker_snapshot(mqtt_svc)),
-        _format_line("Arduino serial: " + describe_serial_hardware()),
+        _format_line("Components"),
+        _format_line("API: UP"),
+        _format_line("MQTT: " + ("UP" if mqtt_up else "DOWN")),
+        _format_line("Database: " + ("UP" if db_ok else "DOWN")),
+        _format_line("Camera: " + ("UP" if cam_sensor_up else "DOWN")),
+        _format_line("Sensor: " + ("UP" if cam_sensor_up else "DOWN")),
+        _format_line("-" * 24),
+        _format_line("Errors"),
+        *([_format_line("- none")] if not errors else [_format_line("- " + e) for e in errors]),
+        _format_line("-" * 24),
+        _format_line("Runtime"),
         _format_line(
             f"REST API + dashboard: will bind {config.API_HOST}:{config.API_PORT}",
         ),

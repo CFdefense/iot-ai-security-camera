@@ -20,25 +20,21 @@ Smart Security Camera for Verified User Access (Computer Vision IoT system).
 
 ## Repo layout
 
-- `docs/` — design notes and diagrams
-- `src/` — Python services that run on the Raspberry Pi gateway
-  - `config.py` — shared config (topics, broker, API key, thresholds)
-  - `db.py` — SQLite whitelist + cosine-similarity match
-  - `capture.py` — camera + face-embedding hooks (stubbed off-Pi)
-  - `mqtt_service.py` — MQTT publisher + 60 s heartbeat loop
-  - `api_service.py` — Flask REST API (registration, detection toggle)
-  - `detection.py` — single-trigger detection flow used by the Arduino bridge
-- `test/` — pytest suite (config, db, capture, mqtt, detection, api)
-- `pyproject.toml` — project metadata, deps, and ruff config (managed with `uv`)
-- `.env.example` — config template
+- `docs/` — design docs and diagrams
+- `src/api_service.py` — combined service entrypoint (REST + dashboard + MQTT threads)
+- `src/mqtt_service.py` — MQTT publish/status logic
+- `src/data/db.py` — SQLite users + detection alerts
+- `src/integrations/serial_bridge.py` — Arduino serial trigger bridge
+- `src/web/` — Flask dashboard (`templates/`, `static/`, `web_ui.py`)
+- `src/core/` — shared config, startup banner, status helpers
+- `test/` — pytest suite
+- `.env.example` — configuration template
 
-## Topic plan (from `docs/Architecture.pdf`)
+## MQTT topics
 
-| Topic                  | Purpose                                                      |
-| ---------------------- | ------------------------------------------------------------ |
-| `home/security/alerts` | Unknown-face alerts (drive mobile notifications). QoS 1.     |
-| `home/security/events` | Proximity / access-granted / toggle / low-quality-capture.   |
-| `home/security/status` | Retained heartbeat every 60 s with uptime + detection state. |
+- `home/security/alerts` — unknown-face alert notifications (QoS 1)
+- `home/security/events` — user/activity events (register, unregister, toggle, etc.)
+- `home/security/status` — retained heartbeat/status snapshots
 
 ## Setup
 
@@ -73,20 +69,17 @@ publishes are dropped until the broker is up. Easiest local option is
 [Mosquitto](https://mosquitto.org/):
 
 ```bash
-# macOS — Homebrew installs the binary but ships only a .conf.example,
-# so use the dev config checked into this repo and run it in the foreground
-# (avoids flaky `brew services` / launchd errors):
+# Arch Linux
+sudo pacman -S mosquitto
+sudo systemctl enable --now mosquitto
+
+# macOS (Homebrew)
 brew install mosquitto
 mosquitto -c dev/mosquitto.conf -v
-# Tip: if `mosquitto` isn't on PATH, use the full path:
-# /opt/homebrew/opt/mosquitto/sbin/mosquitto -c dev/mosquitto.conf -v
 
 # Debian / Raspberry Pi OS
 sudo apt install -y mosquitto mosquitto-clients
 sudo systemctl enable --now mosquitto
-
-# Docker (no install required)
-docker run -it --rm -p 1883:1883 eclipse-mosquitto
 ```
 
 Smoke-test the broker from another shell:
@@ -115,13 +108,10 @@ Either entry point can also be invoked as a module, e.g. `uv run python -m src.a
 Do **not** run files as scripts (`python src/mqtt_service.py`) — they use relative
 imports and need to be loaded as package members.
 
-### Troubleshooting (browser 403, no HTTP lines in the terminal)
+### 3. Open the dashboard
 
-If Chrome shows **HTTP ERROR 403** on `http://127.0.0.1:…` but the Flask process prints **no** werkzeug line like `"GET / HTTP/1.1"`, the request never reached **camera-service**. On macOS, **AirPlay Receiver** commonly binds **TCP port 5000**, so traffic can go to macOS instead of Flask (403, empty body). Fix one of: set **`API_PORT=5050`** in `.env` (the project default), open **`http://127.0.0.1:5050`**, or disable AirPlay Receiver under **System Settings → General → AirDrop & Handoff**. Confirm what listens with:
-
-```bash
-lsof -nP -iTCP -sTCP:LISTEN | grep -E '5000|5050'
-```
+- Go to `http://127.0.0.1:5050/dashboard`
+- Log in with credentials from `.env` (`USER_EMAIL` / `USER_PASSWORD`)
 
 ## Lint / format / test
 
@@ -165,6 +155,13 @@ Liveness probe (no auth):
 curl http://127.0.0.1:5050/healthz
 ```
 
+## Dashboard notes
+
+- Status panel shows: `API`, `MQTT`, `Camera`, `Sensor` with `UP/DOWN`.
+- `API` and `MQTT` publish status now.
+- `Camera` and `Sensor` are `DOWN` until serial/camera status publishers are wired.
+- Register/toggle/unregister are async (no full page reload).
+
 ## Example published messages
 
 `home/security/alerts`:
@@ -180,7 +177,7 @@ curl http://127.0.0.1:5050/healthz
 }
 ```
 
-`home/security/status` (retained, published every 60 s):
+`home/security/status` (retained):
 
 ```json
 {
@@ -190,6 +187,10 @@ curl http://127.0.0.1:5050/healthz
   "uptime_sec": 3660,
   "detection_enabled": true,
   "connected": true,
+  "components": {
+    "mqtt": {"state": "up"},
+    "api": {"state": "up"}
+  },
   "sensor_id": "front_door_cam"
 }
 ```
