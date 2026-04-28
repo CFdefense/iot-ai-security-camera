@@ -3,7 +3,7 @@ import threading
 
 import pytest
 
-from src import serial_bridge
+from src.gateway import serial_bridge
 
 
 class FakeSerial:
@@ -29,11 +29,11 @@ class FakeSerial:
 class RecordingMqtt:
     """MqttPublisher fake: records :meth:`publish_event` calls; other protocol members are no-ops.
 
-    Serial tests monkeypatch :func:`src.detection.handle_trigger`, so
+    Serial tests monkeypatch :func:`src.services.proximity.handle_trigger`, so
     :meth:`publish_alert` is not exercised; we still provide it (and
     :attr:`detection_enabled` / :meth:`set_detection`) to match
     :class:`src.mqtt_service.MqttPublisher` if a test ever calls the real
-    :func:`src.detection.handle_trigger` without a stub.
+    :func:`src.services.proximity.handle_trigger` without a stub.
     """
 
     def __init__(self):
@@ -41,7 +41,7 @@ class RecordingMqtt:
 
     @property
     def detection_enabled(self):
-        """True so :func:`src.detection.handle_trigger` does not early-exit on disabled detection."""
+        """True so :func:`src.services.proximity.handle_trigger` does not early-exit on disabled detection."""
         return True
 
     def publish_event(self, event_type, data=None):
@@ -83,7 +83,7 @@ def test_run_serial_bridge_logs_and_triggers_detection(monkeypatch, isolated_pat
         called["count"] += 1
         return {"status": "granted", "user": "alice"}
 
-    monkeypatch.setattr(serial_bridge.detection, "handle_trigger", fake_handle_trigger)
+    monkeypatch.setattr(serial_bridge.proximity, "handle_trigger", fake_handle_trigger)
 
     serial_bridge.run_serial_bridge(
         mqtt_service=mqtt,
@@ -119,7 +119,7 @@ def test_run_serial_bridge_ignores_non_trigger_event(monkeypatch):
     def should_not_run(_mq):
         raise AssertionError("handle_trigger should not have been called")
 
-    monkeypatch.setattr(serial_bridge.detection, "handle_trigger", should_not_run)
+    monkeypatch.setattr(serial_bridge.proximity, "handle_trigger", should_not_run)
 
     serial_bridge.run_serial_bridge(
         mqtt_service=mqtt,
@@ -151,3 +151,23 @@ def test_run_serial_bridge_bad_json_publishes_error(monkeypatch):
     )
 
     assert any(evt[0] == "serial_json_error" for evt in mqtt.events)
+
+
+def test_run_serial_bridge_open_failure_returns_without_raising(monkeypatch):
+    """Missing device: log warning path; no MQTT events from the reader loop."""
+
+    def fail_open(*args, **kwargs):
+        raise serial_bridge.serial.SerialException("could not open port")
+
+    monkeypatch.setattr(serial_bridge.serial, "Serial", fail_open)
+    stop = threading.Event()
+    mqtt = RecordingMqtt()
+    serial_bridge.run_serial_bridge(
+        mqtt_service=mqtt,
+        stop_event=stop,
+        serial_port="/dev/nonexistent",
+        baudrate=115200,
+        timeout=0.1,
+    )
+
+    assert mqtt.events == []

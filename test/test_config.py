@@ -1,4 +1,4 @@
-from src import config
+from src.gateway import config
 
 
 def test_topics_match_architecture_doc():
@@ -14,9 +14,8 @@ def test_api_key_header_is_the_one_the_doc_specifies():
 
 
 def test_directories_get_created_on_import():
-    """Importing src.config should eagerly create artifacts/ and captures/ so other modules can write."""
+    """Importing src.gateway.config should eagerly create artifacts/ so other modules can write."""
     assert config.ARTIFACTS_DIR.is_dir()
-    assert config.CAPTURES_DIR.is_dir()
 
 
 def test_heartbeat_interval_is_positive_int():

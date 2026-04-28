@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Registered individuals</title>
+    <style>
+      :root {
+        font-family: system-ui, sans-serif;
+        background: #0f1419;
+        color: #e8eaed;
+      }
+      body {
+        margin: 0;
+        padding: 1.25rem clamp(1rem, 3vw, 2rem);
+      }
+      header.shell {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem 1.25rem;
+        margin-bottom: 1.25rem;
+      }
+      header.shell h1 {
+        font-size: 1.35rem;
+        margin: 0;
+        font-weight: 600;
+        flex: 1 1 auto;
+        min-width: 10rem;
+      }
+      .muted {
+        font-size: 0.875rem;
+        color: #9aa7b8;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .status-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      #status-toggle {
+        position: relative;
+        background: #15231a;
+        border: 1px solid rgba(34, 197, 94, 0.55);
+        border-radius: 10px;
+        cursor: pointer;
+        padding: 0.45rem;
+        color: #4ade80;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #status-toggle:hover {
+        background: #1a2e20;
+        border-color: rgba(74, 222, 128, 0.7);
+        color: #86efac;
+      }
+      .heartbeat-mark {
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        color: inherit;
+        animation: status-heartbeat 1.15s ease-in-out infinite;
+      }
+      .pulse-icon-svg {
+        width: 0.95rem;
+        height: 0.95rem;
+        display: block;
+        flex-shrink: 0;
+      }
+      @keyframes status-heartbeat {
+        0%,
+        100% {
+          opacity: 0.82;
+          transform: scale(1);
+        }
+        45% {
+          opacity: 1;
+          transform: scale(1.14);
+        }
+      }
+      #status-panel {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: calc(100% + 8px);
+        width: min(92vw, 320px);
+        background: #1a232d;
+        border: 1px solid #2a3540;
+        border-radius: 12px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+        z-index: 55;
+        overflow: hidden;
+        flex-direction: column;
+      }
+      #status-panel.open {
+        display: flex;
+      }
+      #status-panel .bh {
+        padding: 0.75rem 1rem;
+        border-bottom: none;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #cbd5e1;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .status-panel-simple .muted {
+        color: #94a3b8;
+        font-weight: 400;
+        font-size: 0.74rem;
+      }
+      #status-ts-line {
+        font-size: 0.92rem;
+        font-weight: 600;
+        color: #86efac;
+        word-break: break-word;
+      }
+      #status-payload-expl {
+        font-weight: 400;
+        font-size: 0.72rem;
+        color: #94a3b8;
+        line-height: 1.4;
+        word-break: break-word;
+      }
+      form.logout {
+        margin: 0;
+        display: inline-flex;
+      }
+      #logout-btn.logout-icon-btn {
+        position: relative;
+        background: #291a1a;
+        border: 1px solid rgba(248, 113, 113, 0.55);
+        border-radius: 10px;
+        cursor: pointer;
+        padding: 0.45rem;
+        color: #f87171;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #logout-btn.logout-icon-btn:hover {
+        background: #332020;
+        border-color: rgba(252, 165, 165, 0.6);
+        color: #fca5a5;
+      }
+      .logout-icon-svg {
+        width: 1.1rem;
+        height: 1.1rem;
+        display: block;
+      }
+      .bell-wrap {
+        position: relative;
+      }
+      #bell-toggle {
+        position: relative;
+        background: #232118;
+        border: 1px solid rgba(250, 204, 21, 0.55);
+        border-radius: 10px;
+        cursor: pointer;
+        padding: 0.38rem 0.62rem;
+        color: #facc15;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #bell-toggle:hover {
+        background: #2e2815;
+        border-color: rgba(253, 224, 71, 0.7);
+        color: #fde047;
+      }
+      #bell-toggle .bell-ico {
+        display: inline-flex;
+        line-height: 1;
+        align-items: center;
+        justify-content: center;
+      }
+      .bell-icon-svg {
+        width: 1.12rem;
+        height: 1.12rem;
+        display: block;
+      }
+      #bell-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 4px;
+        background: #f43f5e;
+        color: #fff;
+        font-size: 0.65rem;
+        font-weight: 700;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #232118;
+      }
+      #bell-badge[hidden] {
+        display: none !important;
+      }
+      #bell-panel {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: calc(100% + 8px);
+        width: min(92vw, 380px);
+        max-height: min(70vh, 420px);
+        background: #1a232d;
+        border: 1px solid #2a3540;
+        border-radius: 12px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+        z-index: 50;
+        overflow: hidden;
+        flex-direction: column;
+      }
+      #bell-panel.open {
+        display: flex;
+      }
+      #bell-panel .bh {
+        padding: 0.65rem 1rem;
+        border-bottom: 1px solid #2a3540;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #cbd5e1;
+        flex-shrink: 0;
+      }
+      #bell-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
+      }
+      #bell-list li {
+        padding: 0.55rem 1rem;
+        border-bottom: 1px solid #232e3c;
+        font-size: 0.8rem;
+      }
+      #bell-list li:last-child {
+        border-bottom: none;
+      }
+      #bell-list .ev {
+        font-weight: 600;
+        color: #86efac;
+        word-break: break-word;
+      }
+      #bell-list .topic {
+        font-size: 0.68rem;
+        color: #64748b;
+        margin-top: 0.2rem;
+      }
+      #bell-list .meta-sm {
+        font-size: 0.68rem;
+        color: #788899;
+        margin-top: 0.35rem;
+      }
+      #bell-empty {
+        padding: 1rem 1.25rem;
+        color: #64748b;
+        font-size: 0.8rem;
+      }
+      section {
+        margin-top: 1.75rem;
+      }
+      h2 {
+        font-size: 1rem;
+        margin: 0 0 0.75rem;
+        color: #c7d2e0;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+      }
+      article {
+        background: #1a232d;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #2a3540;
+      }
+      article .meta {
+        padding: 0.75rem 1rem;
+      }
+      article .name {
+        font-weight: 600;
+      }
+      article .ts {
+        font-size: 0.75rem;
+        color: #7d8a99;
+        margin-top: 0.25rem;
+      }
+      article img.photo {
+        width: 100%;
+        aspect-ratio: 4/3;
+        object-fit: cover;
+        background: #0f1419;
+        display: block;
+      }
+      .register-box {
+        max-width: 420px;
+        background: #1a232d;
+        border-radius: 12px;
+        padding: 1rem 1.1rem;
+        border: 1px solid #2a3540;
+      }
+      .register-box input[type="text"] {
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 0.35rem;
+        padding: 0.5rem 0.65rem;
+        border-radius: 8px;
+        border: 1px solid #394551;
+        background: #0f1419;
+        color: inherit;
+      }
+      .register-box button.primary {
+        margin-top: 0.75rem;
+        padding: 0.55rem 1rem;
+        border: none;
+        border-radius: 8px;
+        background: #22c55e;
+        color: #052e13;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .banner {
+        margin-bottom: 1rem;
+        padding: 0.6rem 0.85rem;
+        border-radius: 8px;
+        background: rgba(239, 68, 68, 0.15);
+        color: #fda4af;
+      }
+      .empty {
+        color: #7d8a99;
+        font-size: 0.9rem;
+      }
+      /* Toasts — top-right */
+      #toast-stack {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: flex-end;
+        pointer-events: none;
+        max-width: min(22rem, calc(100vw - 2rem));
+      }
+      .toast {
+        pointer-events: auto;
+        padding: 0.6rem 0.95rem;
+        border-radius: 10px;
+        background: #1e293b;
+        border: 1px solid #334155;
+        box-shadow: 0 10px 32px rgba(0, 0, 0, 0.42);
+        font-size: 0.84rem;
+        line-height: 1.35;
+        animation: toastIn 0.28s ease;
+      }
+      .toast.alt {
+        border-color: #92400e;
+        background: #1f1608;
+        color: #fde68a;
+      }
+      .toast em {
+        font-style: normal;
+        font-weight: 600;
+        color: #a7f3d0;
+      }
+      @keyframes toastIn {
+        from {
+          opacity: 0;
+          transform: translateX(0.85rem);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <template id="pulse-icon-tpl">
+      <svg
+        class="pulse-icon-svg"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <polyline
+          points="2 12 5 12 8 17 11 9 13 21 15 10 17 17 18.5 12 22 12"
+        />
+      </svg>
+    </template>
+    <div id="toast-stack" aria-live="polite"></div>
+
+    <header class="shell">
+      <h1>Registered individuals</h1>
+      <div class="toolbar">
+        <div class="status-wrap">
+          <button
+            type="button"
+            id="status-toggle"
+            title="Show the latest MQTT snapshot from home/security/status"
+            aria-label="MQTT status heartbeat snapshot"
+            aria-expanded="false"
+            aria-controls="status-panel"
+          ></button>
+          <div
+            id="status-panel"
+            role="region"
+            aria-label="MQTT status snapshot"
+          >
+            <div class="bh status-panel-simple">
+              <div>Status</div>
+              <div class="muted">Last updated</div>
+              <div id="status-ts-line">—</div>
+              <div class="muted">
+                Components · <code>{{ status_topic }}</code>
+              </div>
+              <div id="status-payload-expl"></div>
+            </div>
+          </div>
+        </div>
+        <div class="bell-wrap">
+          <button
+            type="button"
+            id="bell-toggle"
+            title="Open live MQTT notifications from home/security/events"
+            aria-label="Open MQTT events notifications"
+            aria-expanded="false"
+            aria-controls="bell-panel"
+          >
+            <span class="bell-ico" aria-hidden="true">
+              <svg
+                class="bell-icon-svg"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            </span>
+            <span id="bell-badge" hidden>0</span>
+          </button>
+          <div id="bell-panel" role="region" aria-label="MQTT notifications">
+            <div class="bh">Notifications</div>
+            <ul id="bell-list"></ul>
+            <div id="bell-empty">No activity yet.</div>
+          </div>
+        </div>
+        <form class="logout" method="post" action="{{ url_for('logout') }}">
+          <button
+            id="logout-btn"
+            type="submit"
+            class="logout-icon-btn"
+            title="Sign out and return to login"
+            aria-label="Sign out"
+          >
+            <svg
+              class="logout-icon-svg"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
+        </form>
+      </div>
+    </header>
+
+    {% if error %}
+    <div class="banner">{{ error }}</div>
+    {% endif %}
+
+    <section>
+      <h2>Register someone new</h2>
+      <p class="muted" style="margin: 0 0 0.5rem; font-size: 0.875rem">
+        Starts the same capture + embed flow as
+        <code>POST /users/register</code> (camera must be available).
+      </p>
+      <div class="register-box">
+        <form method="post" action="{{ url_for('dashboard_register') }}">
+          <label for="name">Name</label>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            placeholder="Jane Doe"
+            required
+          />
+          <button class="primary" type="submit">Capture & register</button>
+        </form>
+      </div>
+    </section>
+
+    <section>
+      <h2>Roster</h2>
+      {% if users|length == 0 %}
+      <p class="empty">No users yet.</p>
+      {% else %}
+      <div class="grid">
+        {% for u in users %}
+        <article>
+          {% if u.has_registration_image %}
+          <img
+            class="photo"
+            src="{{ url_for('user_registration_photo', user_id=u.id) }}"
+            alt="Registration photo"
+          />
+          {% else %}
+          <div
+            class="photo"
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: #5c6b7a;
+              font-size: 0.8rem;
+            "
+          >
+            No stored photo
+          </div>
+          {% endif %}
+          <div class="meta">
+            <div class="name">{{ u.name }}</div>
+            <div class="ts">
+              Registered {{ u.created_ts | registered_date }}
+            </div>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
+
+    <script id="dashboard-ui-config" type="application/json">
+      {{ {"mqtt_stream_url": mqtt_stream_url, "status_json_url": status_json_url} | tojson }}
+    </script>
+    <script>
+      (function () {
+        var cfg = JSON.parse(
+          document.getElementById("dashboard-ui-config").textContent.trim(),
+        );
+        const STREAM = cfg.mqtt_stream_url;
+        const LS_KEY = "dashboard_mqtt_notifications_v1";
+        sessionStorage.removeItem(LS_KEY);
+        sessionStorage.removeItem("dashboard_notif_unread");
+
+        const bellPanel = document.getElementById("bell-panel");
+        const bellToggle = document.getElementById("bell-toggle");
+        const bellList = document.getElementById("bell-list");
+        const bellBadge = document.getElementById("bell-badge");
+        const bellEmpty = document.getElementById("bell-empty");
+        const toastStack = document.getElementById("toast-stack");
+
+        let store = [];
+
+        let unread = 0;
+        let panelOpen = false;
+
+        function topicShort(t) {
+          if (!t || typeof t !== "string") return "";
+          const parts = t.split("/");
+          return parts[parts.length - 1] || t;
+        }
+
+        function summarize(entry) {
+          const p = entry.payload || {};
+          const kind = typeof p.event_type === "string" ? p.event_type : "mqtt";
+          let detail = "";
+          if (kind === "user_registered") {
+            detail =
+              typeof p.name === "string"
+                ? p.name + " (#" + p.user_id + ")"
+                : "(user_registered)";
+          } else if (kind === "access_granted") {
+            detail =
+              String(p.user || "") +
+              " · " +
+              (p.confidence != null ? Number(p.confidence).toFixed(2) : "");
+          } else if (
+            kind === "unknown_face_detected" ||
+            (entry.topic && entry.topic.indexOf("alert") !== -1)
+          ) {
+            detail =
+              typeof p.confidence === "number"
+                ? "confidence " + String(p.confidence)
+                : "";
+          } else if (kind === "detection_toggle") {
+            detail =
+              p.enabled === true ? "on" : p.enabled === false ? "off" : "";
+          } else detail = "";
+
+          detail = detail.trim();
+          return { kind: kind, detail };
+        }
+
+        function renderBell() {
+          bellList.innerHTML = "";
+          if (store.length === 0) {
+            bellEmpty.style.display = "block";
+            return;
+          }
+          bellEmpty.style.display = "none";
+          store.forEach(function (row) {
+            var ssum = summarize(row);
+            var kind = ssum.kind;
+            var detail = ssum.detail;
+            var ts =
+              typeof row.payload.timestamp === "string"
+                ? row.payload.timestamp
+                : "";
+
+            var li = document.createElement("li");
+
+            var dEv = document.createElement("div");
+            dEv.className = "ev";
+            dEv.textContent =
+              kind.replace(/_/g, " ") + (detail ? " — " + detail : "");
+
+            var dTp = document.createElement("div");
+            dTp.className = "topic";
+            dTp.textContent = topicShort(row.topic);
+
+            li.appendChild(dEv);
+            li.appendChild(dTp);
+            if (ts) {
+              var dm = document.createElement("div");
+              dm.className = "meta-sm";
+              dm.textContent = ts;
+              li.appendChild(dm);
+            }
+            bellList.appendChild(li);
+          });
+        }
+
+        function saveStore(arr) {
+          try {
+            sessionStorage.setItem(LS_KEY, JSON.stringify(arr.slice(0, 80)));
+          } catch (_e) {
+            /* quota or private mode */
+          }
+        }
+
+        function setBadge(n) {
+          unread = Math.max(0, n);
+          sessionStorage.setItem("dashboard_notif_unread", String(unread));
+          if (unread > 0) {
+            bellBadge.hidden = false;
+            bellBadge.textContent = unread > 99 ? "99+" : String(unread);
+          } else {
+            bellBadge.hidden = true;
+          }
+        }
+
+        function pushEntry(env, silent) {
+          silent = !!silent;
+          const received = Date.now();
+          const row = Object.assign({}, env, { received: received });
+          store.unshift(row);
+          if (store.length > 80) store = store.slice(0, 80);
+          saveStore(store);
+          renderBell();
+          if (!panelOpen && !silent) setBadge(unread + 1);
+        }
+
+        function isHeartbeatEvent(env) {
+          const p = env.payload || {};
+          if (p.event_type === "heartbeat") return true;
+          const t = env.topic || "";
+          return t.endsWith("/status") || t.indexOf("/status") !== -1;
+        }
+
+        function toast(kind, subtitle) {
+          var isAlert = /alert|unknown/i.test(kind + " " + (subtitle || ""));
+          var div = document.createElement("div");
+          div.className = "toast" + (isAlert ? " alt" : "");
+
+          var em = document.createElement("em");
+          em.textContent = kind.replace(/_/g, " ");
+          div.appendChild(em);
+
+          if (subtitle) {
+            var sd = document.createElement("div");
+            sd.style.marginTop = ".35rem";
+            sd.textContent = subtitle;
+            div.appendChild(sd);
+          }
+          toastStack.appendChild(div);
+          setTimeout(function () {
+            div.remove();
+          }, 6000);
+        }
+
+        document.addEventListener("dash:close-bell", function () {
+          if (!panelOpen) return;
+          panelOpen = false;
+          bellPanel.classList.remove("open");
+          bellToggle.setAttribute("aria-expanded", "false");
+        });
+
+        bellToggle.addEventListener("click", function (e) {
+          e.stopPropagation();
+          document.dispatchEvent(new CustomEvent("dash:close-status"));
+          panelOpen = !panelOpen;
+          bellPanel.classList.toggle("open", panelOpen);
+          bellToggle.setAttribute(
+            "aria-expanded",
+            panelOpen ? "true" : "false",
+          );
+          if (panelOpen) {
+            renderBell();
+            setBadge(0);
+          }
+        });
+        document.body.addEventListener("click", function () {
+          if (panelOpen) {
+            panelOpen = false;
+            bellPanel.classList.remove("open");
+            bellToggle.setAttribute("aria-expanded", "false");
+          }
+        });
+        bellPanel.addEventListener("click", function (e) {
+          e.stopPropagation();
+        });
+
+        const es = new EventSource(STREAM);
+        es.onmessage = function (ev) {
+          try {
+            var env = JSON.parse(ev.data);
+            var hb = isHeartbeatEvent(env);
+            pushEntry(env, hb);
+            if (hb) return;
+            var p = env.payload || {};
+            var evt =
+              typeof p.event_type === "string"
+                ? p.event_type
+                : topicShort(env.topic);
+            var sum = summarize({ topic: env.topic, payload: p });
+            toast(evt, sum.detail);
+          } catch (_e) {
+            /* ignore malformed chunks */
+          }
+        };
+        es.onerror = function () {
+          /* browser auto-reconnects EventSource */
+        };
+
+        renderBell();
+        setBadge(0);
+      })();
+    </script>
+    <script>
+      (function () {
+        var cfg = JSON.parse(
+          document.getElementById("dashboard-ui-config").textContent.trim(),
+        );
+        var statusUrl = cfg.status_json_url;
+        var statusToggle = document.getElementById("status-toggle");
+        var statusPanel = document.getElementById("status-panel");
+        var statusTsLine = document.getElementById("status-ts-line");
+        var statusPayloadExpl = document.getElementById("status-payload-expl");
+        var pulseTpl = document.getElementById("pulse-icon-tpl");
+        if (!statusUrl || !statusToggle || !statusPanel) {
+          return;
+        }
+        var statusPanelOpen = false;
+
+        function clonePulseIcon() {
+          if (!pulseTpl) return null;
+          return document.importNode(pulseTpl.content, true);
+        }
+
+        if (pulseTpl && statusToggle) {
+          var wrap = document.createElement("span");
+          wrap.className = "heartbeat-mark";
+          wrap.setAttribute("aria-hidden", "true");
+          wrap.appendChild(clonePulseIcon());
+          statusToggle.appendChild(wrap);
+        }
+
+        function applyPayload(data) {
+          var ts = data && data.last_status_at ? data.last_status_at : "";
+          if (statusTsLine) {
+            statusTsLine.textContent = ts || "—";
+          }
+          if (statusPayloadExpl) {
+            statusPayloadExpl.textContent =
+              "Latest MQTT status report (payload time): " + (ts || "—");
+          }
+        }
+
+        function refreshStatus() {
+          fetch(statusUrl, { credentials: "same-origin" })
+            .then(function (r) {
+              return r.ok
+                ? r.json()
+                : Promise.reject(new Error(String(r.status)));
+            })
+            .then(applyPayload)
+            .catch(function () {});
+        }
+
+        document.addEventListener("dash:close-status", function () {
+          if (!statusPanelOpen) return;
+          statusPanelOpen = false;
+          statusPanel.classList.remove("open");
+          statusToggle.setAttribute("aria-expanded", "false");
+        });
+
+        statusToggle.addEventListener("click", function (e) {
+          e.stopPropagation();
+          document.dispatchEvent(new CustomEvent("dash:close-bell"));
+          statusPanelOpen = !statusPanelOpen;
+          statusPanel.classList.toggle("open", statusPanelOpen);
+          statusToggle.setAttribute(
+            "aria-expanded",
+            statusPanelOpen ? "true" : "false",
+          );
+          if (statusPanelOpen) refreshStatus();
+        });
+        document.body.addEventListener("click", function () {
+          if (statusPanelOpen) {
+            statusPanelOpen = false;
+            statusPanel.classList.remove("open");
+            statusToggle.setAttribute("aria-expanded", "false");
+          }
+        });
+        statusPanel.addEventListener("click", function (e) {
+          e.stopPropagation();
+        });
+
+        refreshStatus();
+        setInterval(refreshStatus, 15000);
+      })();
+    </script>
+  </body>
+</html>

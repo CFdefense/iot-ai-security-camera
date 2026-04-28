@@ -1,6 +1,7 @@
 import pytest
 
-from src import api_service, capture, config
+from src import api_service
+from src.gateway import config
 
 
 class FakeMqtt:
@@ -40,6 +41,13 @@ class FakeMqtt:
         self._enabled = bool(enabled)
         self.events.append(("detection_toggle", {"enabled": self._enabled}))
 
+    def dashboard_status_bundle(self):
+        """Thin snapshot for /dashboard/status.json tests."""
+        return {
+            "last_status_at": "2026-04-01T00:00:00Z",
+            "status_topic": "home/security/status",
+        }
+
 
 @pytest.fixture
 def fake_mqtt():
@@ -56,6 +64,45 @@ def client(monkeypatch, isolated_paths, fake_mqtt):
     with app.test_client() as c:
         yield c
 
+
+def test_dashboard_events_stream_requires_login(monkeypatch, isolated_paths):
+    """SSE endpoint is session-guarded like the rest of the dashboard."""
+    monkeypatch.setattr(config, "API_KEY", "test-key")
+    app = api_service.create_app(FakeMqtt())
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        assert c.get("/dashboard/events/stream").status_code == 302
+
+
+def test_dashboard_status_json_requires_login(monkeypatch, isolated_paths):
+    """Health snapshot requires a browser session."""
+    monkeypatch.setattr(config, "API_KEY", "test-key")
+    app = api_service.create_app(FakeMqtt())
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        assert c.get("/dashboard/status.json").status_code == 302
+
+
+def test_dashboard_status_json_ok_when_logged_in(monkeypatch, isolated_paths, fake_mqtt):
+    """GET /dashboard/status.json returns component rows once session is established."""
+    monkeypatch.setattr(config, "API_KEY", "device-secret")
+    monkeypatch.setenv("USER_EMAIL", "u@example.local")
+    monkeypatch.setenv("USER_PASSWORD", "pw")
+
+    app = api_service.create_app(fake_mqtt)
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        assert c.post(
+            "/login",
+            data={"email": "u@example.local", "password": "pw"},
+        ).status_code in (302, 200)
+
+        r = c.get("/dashboard/status.json")
+
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body.get("last_status_at") == "2026-04-01T00:00:00Z"
+    assert body.get("status_topic") == "home/security/status"
 
 def test_healthz_is_public_and_reports_detection_state(client):
     """/healthz has no API-key check (so kube/monitoring can probe it) and reports the detection flag."""
@@ -106,7 +153,7 @@ def test_register_happy_path_returns_201_and_publishes_event(client, fake_mqtt):
     body = r.get_json()
     assert body["id"] == 1
     assert body["name"] == "christian"
-    assert body["image_ref"].endswith(".jpg")
+    assert body["registration_image_stored"] is True
     assert fake_mqtt.events[-1][0] == "user_registered"
 
 
@@ -123,10 +170,10 @@ def test_register_missing_name_is_400(client):
 def test_register_capture_hardware_failure_is_500(client, monkeypatch):
     """Unexpected camera/hw failures surface as 500 with a 'capture_failed' error hint."""
 
-    def boom():
+    def boom(_name):
         raise RuntimeError("camera offline")
 
-    monkeypatch.setattr(capture, "capture_image", boom)
+    monkeypatch.setattr(api_service, "capture_embed_and_save", boom)
     r = client.post(
         "/users/register",
         json={"name": "x"},
@@ -139,10 +186,10 @@ def test_register_capture_hardware_failure_is_500(client, monkeypatch):
 def test_register_value_error_from_embed_is_422(client, monkeypatch):
     """A ValueError from embed_face (e.g. 'no face detected') is a 422 unprocessable-entity, not 500."""
 
-    def no_face(_p):
+    def no_face(_name):
         raise ValueError("no face detected")
 
-    monkeypatch.setattr(capture, "embed_face", no_face)
+    monkeypatch.setattr(api_service, "capture_embed_and_save", no_face)
     r = client.post(
         "/users/register",
         json={"name": "x"},
@@ -200,3 +247,26 @@ def test_toggle_detection_returns_503_without_mqtt(monkeypatch):
             headers={"X-API-Key": "test-key"},
         )
         assert r.status_code == 503
+
+
+def test_dashboard_login_uses_session_not_user_api_key(monkeypatch, isolated_paths, fake_mqtt):
+    """POST /login accepts email/password only; REST API_KEY is enforced server-side elsewhere."""
+    monkeypatch.setattr(config, "API_KEY", "device-secret")
+    monkeypatch.setenv("USER_EMAIL", "u@example.local")
+    monkeypatch.setenv("USER_PASSWORD", "pw")
+
+    app = api_service.create_app(fake_mqtt)
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        r = c.post(
+            "/login",
+            data={"email": "u@example.local", "password": "wrong"},
+        )
+        assert r.status_code == 401
+
+        r2 = c.post(
+            "/login",
+            data={"email": "u@example.local", "password": "pw"},
+        )
+        assert r2.status_code == 302
+        assert "/dashboard" in (r2.headers.get("Location") or "")

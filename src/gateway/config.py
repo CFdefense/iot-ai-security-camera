@@ -12,14 +12,15 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]  # repo root (not ``src/``)
 load_dotenv(PROJECT_ROOT / ".env")
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
-CAPTURES_DIR = PROJECT_ROOT / "captures"
 DB_PATH = Path(os.environ.get("CAMERA_DB_PATH", PROJECT_ROOT / "whitelist.sqlite"))
 
 # Serial Configuration
-SERIAL_PORT = os.environ.get("SERIAL_PORT", "/dev/ttyACM0")
+# Set SERIAL_PORT= (empty value) in .env to skip the Arduino serial bridge on laptops without hardware.
+SERIAL_PORT_RAW = os.environ.get("SERIAL_PORT")
+SERIAL_PORT = SERIAL_PORT_RAW.strip() if SERIAL_PORT_RAW is not None else "/dev/ttyACM0"
 SERIAL_BAUD = int(os.environ.get("SERIAL_BAUD", "115200"))
 SERIAL_TIMEOUT = float(os.environ.get("SERIAL_TIMEOUT", "1.0"))
 
@@ -45,9 +46,15 @@ SENSOR_ID = os.environ.get("SENSOR_ID", "front_door_cam")
 # REST API configuration
 # Binds to the local network interface only (not 0.0.0.0), per the
 API_HOST = os.environ.get("API_HOST", "127.0.0.1")
-API_PORT = int(os.environ.get("API_PORT", "5000"))
-API_KEY = os.environ.get("API_KEY", "")
+# Default 5050: on macOS, AirPlay Receiver often listens on TCP 5000 — browsers then
+# hit that service (403, no Flask logs) while camera-service appears "healthy".
+API_PORT = int(os.environ.get("API_PORT", "5050"))
+API_KEY = os.environ.get("API_KEY", "").strip()
 API_KEY_HEADER = "X-API-Key"
 
-for d in (ARTIFACTS_DIR, CAPTURES_DIR):
-    d.mkdir(parents=True, exist_ok=True)
+# Web dashboard session auth; dashboard_users reset from env once at Flask startup (create_app).
+SESSION_SECRET = os.environ.get("SESSION_SECRET", "")
+USER_EMAIL = os.environ.get("USER_EMAIL", "").strip()
+USER_PASSWORD = os.environ.get("USER_PASSWORD", "")
+
+ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)

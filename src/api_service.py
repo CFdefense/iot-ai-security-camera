@@ -28,12 +28,17 @@ from __future__ import annotations
 import logging
 import threading
 from functools import wraps
+from pathlib import Path
 
 from flask import Flask, jsonify, request
 
-from . import capture, config, db
+from .gateway import config, web_ui
+from .gateway.event_hub import EventHub
+from .gateway.persistence import db
+from .gateway.serial_bridge import run_serial_bridge
+from .gateway.services.register_user import capture_embed_and_save
+from .gateway.startup_banner import log_banner
 from .mqtt_service import MqttPublisher, MqttService
-from .serial_bridge import run_serial_bridge
 
 log = logging.getLogger("api_service")
 
@@ -51,19 +56,25 @@ def _require_api_key(fn):
     return wrapper
 
 
-def create_app(mqtt_service: MqttPublisher | None = None) -> Flask:
+def create_app(mqtt_service: MqttPublisher | None = None, *, event_hub: EventHub | None = None) -> Flask:
     """Build and configure the Flask app.
 
     Args:
         mqtt_service: Anything satisfying :class:`MqttPublisher` (the real
             :class:`MqttService` or a test fake). Pass ``None`` to disable
             MQTT-backed routes (they will return 503).
+        event_hub: Shared :class:`EventHub` for dashboard live MQTT view; if omitted, a new hub is used.
 
     Returns:
-        A ready-to-run Flask application with the private camera routes.
+        A ready-to-run Flask application with the private camera routes and dashboard UI.
     """
-    app = Flask(__name__)
+    with db.connect() as conn:
+        db.reset_dashboard_credentials_from_env(conn)
+
+    pkg = Path(__file__).resolve().parent / "gateway"
+    app = Flask(__name__, template_folder=str(pkg / "templates"))
     app.config["mqtt"] = mqtt_service
+    app.config["event_hub"] = event_hub if event_hub is not None else EventHub()
 
     @app.get("/healthz")
     def healthz():
@@ -84,26 +95,28 @@ def create_app(mqtt_service: MqttPublisher | None = None) -> Flask:
             return jsonify({"error": "name is required"}), 400
 
         try:
-            image_path = capture.capture_image()
-            embedding = capture.embed_face(image_path)
+            user_id, _jpeg = capture_embed_and_save(name)
         except ValueError as e:
             return jsonify({"error": str(e)}), 422
         except Exception as e:  # camera / hardware failure
             log.exception("capture failed")
             return jsonify({"error": f"capture_failed: {e}"}), 500
 
-        with db.connect() as conn:
-            user_id = db.add_user(conn, name, embedding)
-
         mq: MqttPublisher | None = app.config.get("mqtt")
         if mq is not None:
             mq.publish_event(
                 "user_registered",
-                {"user_id": user_id, "name": name, "image_ref": str(image_path)},
+                {"user_id": user_id, "name": name},
             )
 
         return (
-            jsonify({"id": user_id, "name": name, "image_ref": str(image_path)}),
+            jsonify(
+                {
+                    "id": user_id,
+                    "name": name,
+                    "registration_image_stored": True,
+                }
+            ),
             201,
         )
 
@@ -126,6 +139,7 @@ def create_app(mqtt_service: MqttPublisher | None = None) -> Flask:
         mq.set_detection(enabled)
         return jsonify({"detection_enabled": enabled})
 
+    web_ui.init_app(app)
     return app
 
 
@@ -135,11 +149,12 @@ def main() -> None:
 
     if not config.API_KEY:
         log.warning(
-            "API_KEY is empty; /users/register and /detection/toggle will return 500. "
-            "Set the API_KEY environment variable before starting the service."
+            "API_KEY is empty; guarded REST routes return 500 and GET/POST /login return 503. "
+            "Set API_KEY (e.g. in .env) before starting the service."
         )
 
-    mqtt_svc = MqttService()
+    hub = EventHub()
+    mqtt_svc = MqttService(on_publish=hub.emit)
     mqtt_svc.start()
 
     stop_event = threading.Event()
@@ -149,21 +164,25 @@ def main() -> None:
         daemon=True,
     )
     hb_thread.start()
-    
-    serial_thread = threading.Thread(
-        target=run_serial_bridge,
-        kwargs={
-            "mqtt_service": mqtt_svc,
-            "stop_event": stop_event,
-            "serial_port": config.SERIAL_PORT,
-            "baudrate": config.SERIAL_BAUD,
-            "timeout": config.SERIAL_TIMEOUT,
-        },
-        daemon=True,
-    )
-    serial_thread.start()
 
-    app = create_app(mqtt_svc)
+    if config.SERIAL_PORT:
+        serial_thread = threading.Thread(
+            target=run_serial_bridge,
+            kwargs={
+                "mqtt_service": mqtt_svc,
+                "stop_event": stop_event,
+                "serial_port": config.SERIAL_PORT,
+                "baudrate": config.SERIAL_BAUD,
+                "timeout": config.SERIAL_TIMEOUT,
+            },
+            daemon=True,
+        )
+        serial_thread.start()
+    else:
+        log.info("SERIAL_PORT is blank — Arduino serial bridge skipped (dashboard/MQTT still active).")
+
+    app = create_app(mqtt_svc, event_hub=hub)
+    log_banner(mqtt_svc)
     try:
         app.run(host=config.API_HOST, port=config.API_PORT, debug=False, use_reloader=False)
     finally:

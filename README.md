@@ -115,6 +115,14 @@ Either entry point can also be invoked as a module, e.g. `uv run python -m src.a
 Do **not** run files as scripts (`python src/mqtt_service.py`) — they use relative
 imports and need to be loaded as package members.
 
+### Troubleshooting (browser 403, no HTTP lines in the terminal)
+
+If Chrome shows **HTTP ERROR 403** on `http://127.0.0.1:…` but the Flask process prints **no** werkzeug line like `"GET / HTTP/1.1"`, the request never reached **camera-service**. On macOS, **AirPlay Receiver** commonly binds **TCP port 5000**, so traffic can go to macOS instead of Flask (403, empty body). Fix one of: set **`API_PORT=5050`** in `.env` (the project default), open **`http://127.0.0.1:5050`**, or disable AirPlay Receiver under **System Settings → General → AirDrop & Handoff**. Confirm what listens with:
+
+```bash
+lsof -nP -iTCP -sTCP:LISTEN | grep -E '5000|5050'
+```
+
 ## Lint / format / test
 
 ```bash
@@ -130,7 +138,7 @@ uv run pytest -v test/test_mqtt_service.py   # run one module
 Register a new whitelist user (triggers a camera capture on the Pi):
 
 ```bash
-curl -X POST http://127.0.0.1:5000/users/register \
+curl -X POST http://127.0.0.1:5050/users/register \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "christian"}'
@@ -139,7 +147,7 @@ curl -X POST http://127.0.0.1:5000/users/register \
 Toggle detection off (publishes a `detection_toggle` event on `home/security/events`):
 
 ```bash
-curl -X POST http://127.0.0.1:5000/detection/toggle \
+curl -X POST http://127.0.0.1:5050/detection/toggle \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"enabled": false}'
@@ -148,13 +156,13 @@ curl -X POST http://127.0.0.1:5000/detection/toggle \
 List registered users:
 
 ```bash
-curl http://127.0.0.1:5000/users -H "X-API-Key: $API_KEY"
+curl http://127.0.0.1:5050/users -H "X-API-Key: $API_KEY"
 ```
 
 Liveness probe (no auth):
 
 ```bash
-curl http://127.0.0.1:5000/healthz
+curl http://127.0.0.1:5050/healthz
 ```
 
 ## Example published messages
@@ -167,7 +175,7 @@ curl http://127.0.0.1:5000/healthz
   "timestamp": "2026-04-14T18:32:05Z",
   "event_type": "unknown_face_detected",
   "confidence": 0.34,
-  "image_ref": "captures/2026-04-14_183205.jpg",
+  "image_ref": "inline:2026-04-14_183205",
   "sensor_id": "front_door_cam"
 }
 ```
