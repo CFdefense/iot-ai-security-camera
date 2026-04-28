@@ -143,6 +143,29 @@ header.shell h1 {
   border-radius: 8px;
   background: #111922;
 }
+.status-errors {
+  margin-top: 0.55rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #2a3540;
+}
+.status-errors-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fda4af;
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+#status-errors-list {
+  margin: 0;
+  padding-left: 1rem;
+  color: #fecaca;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+#status-errors-list li + li {
+  margin-top: 0.2rem;
+}
 .status-name {
   font-size: 0.74rem;
   color: #cbd5e1;
@@ -437,6 +460,49 @@ section {
 .users-list .alert-sub {
   font-size: 0.68rem;
 }
+.user-photo-wrap {
+  position: relative;
+}
+.user-photo-wrap img {
+  transition: filter 0.18s ease;
+}
+.unregister-user-form {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  background: rgba(2, 6, 23, 0.45);
+}
+.user-photo-wrap:hover .unregister-user-form,
+.user-photo-wrap:focus-within .unregister-user-form {
+  opacity: 1;
+}
+.user-photo-wrap:hover img,
+.user-photo-wrap:focus-within img {
+  filter: brightness(0.45);
+}
+.unregister-btn {
+  border: 1px solid rgba(248, 113, 113, 0.7);
+  background: rgba(127, 29, 29, 0.72);
+  color: #fecaca;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.unregister-btn:hover {
+  background: rgba(153, 27, 27, 0.85);
+  color: #fee2e2;
+}
 .alert-card {
   border: 1px solid #2d3a47;
   border-radius: 10px;
@@ -616,7 +682,7 @@ article img.photo {
 }
 #toast-stack {
   position: fixed;
-  top: 1rem;
+  top: 2.6rem;
   right: 1rem;
   z-index: 1000;
   display: flex;
@@ -628,14 +694,19 @@ article img.photo {
 }
 .toast {
   pointer-events: auto;
-  padding: 0.6rem 0.95rem;
-  border-radius: 10px;
+  padding: 0.8rem 1.05rem;
+  border-radius: 12px;
   background: #1e293b;
   border: 1px solid #334155;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.42);
-  font-size: 0.84rem;
-  line-height: 1.35;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  min-width: min(18rem, calc(100vw - 2rem));
+  max-width: min(20rem, calc(100vw - 2rem));
   animation: toastIn 0.28s ease;
+}
+.toast.closing {
+  animation: toastOut 0.26s ease forwards;
 }
 .toast.alt {
   border-color: #92400e;
@@ -644,8 +715,10 @@ article img.photo {
 }
 .toast em {
   font-style: normal;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 0.95rem;
   color: #a7f3d0;
+  letter-spacing: 0.01em;
 }
 @keyframes toastIn {
   from {
@@ -655,5 +728,15 @@ article img.photo {
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+@keyframes toastOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(0.85rem);
   }
 }

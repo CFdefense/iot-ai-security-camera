@@ -129,7 +129,7 @@
           <div class="hero-grid">
             <div class="hero-card">
               <div class="hero-label">Registered users</div>
-              <div class="hero-value">{{ users|length }}</div>
+              <div id="registered-users-count" class="hero-value">{{ users|length }}</div>
             </div>
             <div class="hero-card">
               <div class="hero-label">Detection events</div>
@@ -137,7 +137,7 @@
             </div>
             <div class="hero-card">
               <div class="hero-label">Detection service</div>
-              <div class="hero-value {% if detection_enabled %}active{% else %}inactive{% endif %}">
+              <div id="detection-service-state" class="hero-value {% if detection_enabled %}active{% else %}inactive{% endif %}">
                 {% if detection_enabled is none %}Unknown{% elif detection_enabled %}Online{% else %}Paused{% endif %}
               </div>
             </div>
@@ -146,11 +146,11 @@
 
         <section class="control-grid">
           <div class="panel register-box">
-            <h2>Add registered user</h2>
+            <h2>Register a user</h2>
             <p class="muted" style="margin: 0 0 0.5rem; font-size: 0.84rem">
-              Captures a face and stores an embedding in the local whitelist.
+              Add someone to your trusted users list.
             </p>
-            <form method="post" action="{{ url_for('dashboard_register') }}">
+            <form id="register-user-form" method="post" action="{{ url_for('dashboard_register') }}">
               <label for="name">Full name</label>
               <input id="name" name="name" type="text" placeholder="Jane Doe" required />
               <button class="primary" type="submit">Capture and register</button>
@@ -162,7 +162,7 @@
             <p class="muted" style="margin: 0; font-size: 0.84rem">
               Pause or resume live face detection without restarting the API service.
             </p>
-            <form class="detection-form" method="post" action="{{ url_for('dashboard_detection_toggle') }}">
+            <form id="detection-toggle-form" class="detection-form" method="post" action="{{ url_for('dashboard_detection_toggle') }}">
               {% if detection_enabled %}
               <input type="hidden" name="enabled" value="off" />
               <button type="submit" class="toggle-btn on">Turn detection off</button>
@@ -185,12 +185,28 @@
             {% else %}
             <div class="users-list">
               {% for u in users %}
-              <article class="alert-card">
+              <article class="alert-card user-card" data-user-id="{{ u.id }}">
                 {% if u.has_registration_image %}
-                <img
-                  src="{{ url_for('user_registration_photo', user_id=u.id) }}"
-                  alt="Registration photo"
-                />
+                <div class="user-photo-wrap">
+                  <img
+                    src="{{ url_for('user_registration_photo', user_id=u.id) }}"
+                    alt="Registration photo"
+                  />
+                  <form
+                    class="unregister-user-form"
+                    method="post"
+                    action="{{ url_for('dashboard_unregister_user', user_id=u.id) }}"
+                  >
+                    <button
+                      type="submit"
+                      class="unregister-btn"
+                      title="Unregister user"
+                      aria-label="Unregister {{ u.name }}"
+                    >
+                      ×
+                    </button>
+                  </form>
+                </div>
                 {% endif %}
                 <div class="alert-meta">
                   <div class="alert-type">registered user</div>

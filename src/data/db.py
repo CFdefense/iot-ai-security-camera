@@ -178,6 +178,25 @@ def get_registration_image(conn: sqlite3.Connection, user_id: int) -> bytes | No
     return bytes(row["registration_image"])
 
 
+def delete_user(conn: sqlite3.Connection, user_id: int) -> bool:
+    """Delete one registered user by id.
+
+    Returns:
+        True when a row was deleted, else False.
+    """
+    cur = conn.execute("DELETE FROM users WHERE id = ?", (int(user_id),))
+    conn.commit()
+    return int(cur.rowcount or 0) > 0
+
+
+def get_user_name(conn: sqlite3.Connection, user_id: int) -> str | None:
+    """Return user name for id, or None when missing."""
+    row = conn.execute("SELECT name FROM users WHERE id = ?", (int(user_id),)).fetchone()
+    if row is None:
+        return None
+    return str(row["name"])
+
+
 def record_detection_alert(
     conn: sqlite3.Connection,
     *,

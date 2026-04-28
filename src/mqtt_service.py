@@ -192,7 +192,15 @@ class MqttService:
         else:
             payload.pop("sensor_id", None)
         body = json.dumps(payload, separators=(",", ":"))
-        self._client.publish(topic, payload=body, qos=qos, retain=retain)
+        info = self._client.publish(topic, payload=body, qos=qos, retain=retain)
+        rc = int(getattr(info, "rc", mqtt.MQTT_ERR_NO_CONN))
+        if rc != mqtt.MQTT_ERR_SUCCESS:
+            # During startup/reconnect, rc=NO_CONN is expected noise; keep it debug.
+            if rc == mqtt.MQTT_ERR_NO_CONN:
+                log.debug("drop %s publish rc=%s payload=%s", topic, rc, body)
+            else:
+                log.warning("drop %s publish rc=%s payload=%s", topic, rc, body)
+            return
         _EVENTS_LOG.parent.mkdir(parents=True, exist_ok=True)
         with _EVENTS_LOG.open("a", encoding="utf-8") as f:
             f.write(body + "\n")

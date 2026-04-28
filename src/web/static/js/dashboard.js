@@ -34,6 +34,8 @@
     if (kind === "user_registered") {
       detail =
         typeof p.name === "string" ? p.name + " (#" + p.user_id + ")" : "(user_registered)";
+    } else if (kind === "user_unregistered") {
+      detail = typeof p.name === "string" ? p.name : "(user_unregistered)";
     } else if (kind === "access_granted") {
       detail =
         String(p.user || "") + " · " + (p.confidence != null ? Number(p.confidence).toFixed(2) : "");
@@ -148,7 +150,7 @@
     div.className = "toast" + (isAlert ? " alt" : "");
 
     var em = document.createElement("em");
-    em.textContent = kind.replace(/_/g, " ");
+    em.textContent = prettyEvent(kind);
     div.appendChild(em);
 
     if (subtitle) {
@@ -157,10 +159,145 @@
       sd.textContent = subtitle;
       div.appendChild(sd);
     }
+    var dismissing = false;
+    function dismissToast() {
+      if (dismissing) return;
+      dismissing = true;
+      div.classList.add("closing");
+      setTimeout(function () {
+        div.remove();
+      }, 280);
+    }
+    div.addEventListener("click", dismissToast);
     toastStack.appendChild(div);
     setTimeout(function () {
-      div.remove();
-    }, 6000);
+      dismissToast();
+    }, 5600);
+  }
+
+  function prettyEvent(kind) {
+    if (!kind || typeof kind !== "string") return "Notification";
+    var words = kind.replace(/_/g, " ").trim().split(/\s+/);
+    return words
+      .map(function (w) {
+        var up = w.toUpperCase();
+        if (up === "API" || up === "MQTT") return up;
+        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+      })
+      .join(" ");
+  }
+
+  function initAsyncForms() {
+    var registerForm = document.getElementById("register-user-form");
+    var detectionForm = document.getElementById("detection-toggle-form");
+    var detectionStateEl = document.getElementById("detection-service-state");
+    var usersCountEl = document.getElementById("registered-users-count");
+
+    function setBusy(form, busy) {
+      var btn = form ? form.querySelector('button[type="submit"]') : null;
+      if (!btn) return;
+      btn.disabled = !!busy;
+      btn.style.opacity = busy ? "0.75" : "";
+    }
+
+    function submitFormAsync(form, onSuccess) {
+      if (!form) return;
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        setBusy(form, true);
+        fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          credentials: "same-origin",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            Accept: "application/json,text/html",
+          },
+        })
+          .then(function (r) {
+            if (!r.ok) throw new Error("request_failed");
+            return r;
+          })
+          .then(function () {
+            if (typeof onSuccess === "function") onSuccess();
+          })
+          .catch(function () {
+            toast("error", "Action failed. Please try again.");
+          })
+          .finally(function () {
+            setBusy(form, false);
+          });
+      });
+    }
+
+    submitFormAsync(registerForm, function () {
+      var nameInput = registerForm ? registerForm.querySelector('input[name="name"]') : null;
+      if (nameInput) nameInput.value = "";
+    });
+
+    submitFormAsync(detectionForm, function () {
+      if (!detectionForm) return;
+      var hidden = detectionForm.querySelector('input[name="enabled"]');
+      var btn = detectionForm.querySelector('button[type="submit"]');
+      if (!hidden || !btn) return;
+      if (hidden.value === "off") {
+        hidden.value = "on";
+        btn.textContent = "Turn detection on";
+        btn.classList.remove("on");
+        btn.classList.add("off");
+        if (detectionStateEl) {
+          detectionStateEl.textContent = "Paused";
+          detectionStateEl.classList.remove("active");
+          detectionStateEl.classList.add("inactive");
+        }
+      } else {
+        hidden.value = "off";
+        btn.textContent = "Turn detection off";
+        btn.classList.remove("off");
+        btn.classList.add("on");
+        if (detectionStateEl) {
+          detectionStateEl.textContent = "Online";
+          detectionStateEl.classList.remove("inactive");
+          detectionStateEl.classList.add("active");
+        }
+      }
+    });
+
+    document.querySelectorAll(".unregister-user-form").forEach(function (form) {
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        if (!window.confirm("Unregister this user?")) return;
+        setBusy(form, true);
+        fetch(form.action, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            Accept: "application/json,text/html",
+          },
+        })
+          .then(function (r) {
+            if (!r.ok) throw new Error("request_failed");
+            return r.json();
+          })
+          .then(function () {
+            var card = form.closest(".user-card");
+            var userNameEl = card ? card.querySelector(".alert-main") : null;
+            var userName = userNameEl && userNameEl.textContent ? userNameEl.textContent.trim() : "User";
+            if (card) card.remove();
+            if (usersCountEl) {
+              var current = Number(usersCountEl.textContent || "0");
+              if (Number.isFinite(current)) usersCountEl.textContent = String(Math.max(0, current - 1));
+            }
+          })
+          .catch(function () {
+            toast("error", "Unable to unregister user.");
+          })
+          .finally(function () {
+            setBusy(form, false);
+          });
+      });
+    });
   }
 
   document.addEventListener("dash:close-bell", function () {
@@ -214,6 +351,7 @@
   renderBell();
   setBadge(0);
   loadRecent();
+  initAsyncForms();
 })();
 
 (function () {
@@ -282,13 +420,12 @@
           if (payload.connected === true) return "up";
           if (payload.connected === false) return "down";
         }
-        return "unknown";
+        return "down";
       }
       function renderComponent(label, key) {
         var state = componentState(key);
         if (state === "up") addRow(label, "UP", "ok");
-        else if (state === "down") addRow(label, "DOWN", "down");
-        else addRow(label, "UNKNOWN", "unknown");
+        else addRow(label, "DOWN", "down");
       }
 
       renderComponent("API", "api");

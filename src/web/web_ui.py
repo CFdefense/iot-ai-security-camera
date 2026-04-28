@@ -109,6 +109,9 @@ def init_app(app: Flask) -> None:
             status_code,
         )
 
+    def _wants_json() -> bool:
+        return request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
     @app.get("/")
     def root():
         if session.get("logged_in"):
@@ -245,6 +248,25 @@ def init_app(app: Flask) -> None:
         if mq is None:
             return _render_dashboard("MQTT service not initialized", status_code=503)
         mq.set_detection(enabled_value == "on")
+        return redirect(url_for("dashboard"))
+
+    @app.post("/dashboard/users/<int:user_id>/unregister")
+    @_login_required
+    def dashboard_unregister_user(user_id: int):
+        with db.connect() as conn:
+            user_name = db.get_user_name(conn, user_id)
+            deleted = db.delete_user(conn, user_id)
+        if not deleted:
+            if _wants_json():
+                return jsonify({"error": "User not found"}), 404
+            return _render_dashboard("User not found", status_code=404)
+
+        mq = app.config.get("mqtt")
+        if mq is not None:
+            mq.publish_event("user_unregistered", {"user_id": user_id, "name": user_name})
+
+        if _wants_json():
+            return jsonify({"ok": True, "user_id": user_id})
         return redirect(url_for("dashboard"))
 
     @app.get("/dashboard/users/<int:user_id>/photo")
