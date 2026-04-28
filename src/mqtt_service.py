@@ -93,6 +93,11 @@ class MqttService:
         self._connected = False
         self._lock = threading.Lock()
 
+    @property
+    def broker_connected(self) -> bool:
+        """True when the MQTT client has an active broker session."""
+        return self._connected
+
     def start(self) -> None:
         """Connect to the broker and start the paho network loop thread.
 

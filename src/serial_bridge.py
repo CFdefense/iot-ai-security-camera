@@ -6,10 +6,28 @@ import threading
 
 import serial
 
-from . import config, detection
+from . import config
 from .mqtt_service import MqttPublisher
+from .services import proximity
 
 log = logging.getLogger("serial_bridge")
+
+
+def format_serial_open_error(port: str, exc: BaseException) -> str:
+    """Short, single-line reason for a failed :class:`serial.Serial` open (logs + startup banner)."""
+    errno = getattr(exc, "errno", None)
+    if errno is None and isinstance(exc, OSError):
+        errno = exc.errno
+    if errno == 2:
+        return f"{port} not found — connect the device or set SERIAL_PORT= to skip"
+    if errno == 13:
+        return f"{port} permission denied"
+    if errno == 16:
+        return f"{port} busy or in use"
+    msg = str(exc).replace("\n", " ")
+    if msg.count("[Errno") > 1 and "No such file" in msg:
+        return f"{port} not found — connect the device or set SERIAL_PORT= to skip"
+    return f"{port}: {msg}"
 
 
 def should_trigger(msg: dict) -> bool:
@@ -36,8 +54,14 @@ def run_serial_bridge(
 
     try:
         ser = serial.Serial(serial_port, baudrate=baudrate, timeout=timeout)
+    except serial.SerialException as e:
+        log.warning(
+            "Serial bridge disabled — %s. HTTP and MQTT still run without serial.",
+            format_serial_open_error(serial_port, e),
+        )
+        return
     except Exception:
-        log.exception("failed to open serial port")
+        log.exception("Unexpected error opening serial port %s", serial_port)
         return
 
     log_path = config.ARTIFACTS_DIR / "arduino_serial.jsonl"
@@ -63,7 +87,7 @@ def run_serial_bridge(
                 mqtt_service.publish_event("arduino_serial_received", {"raw": msg})
 
                 if should_trigger(msg):
-                    result = detection.handle_trigger(mqtt_service)
+                    result = proximity.handle_trigger(mqtt_service)
                     mqtt_service.publish_event(
                         "detection_result",
                         {

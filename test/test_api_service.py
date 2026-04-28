@@ -1,6 +1,6 @@
 import pytest
 
-from src import api_service, capture, config
+from src import api_service, config
 
 
 class FakeMqtt:
@@ -106,7 +106,7 @@ def test_register_happy_path_returns_201_and_publishes_event(client, fake_mqtt):
     body = r.get_json()
     assert body["id"] == 1
     assert body["name"] == "christian"
-    assert body["image_ref"].endswith(".jpg")
+    assert body["registration_image_stored"] is True
     assert fake_mqtt.events[-1][0] == "user_registered"
 
 
@@ -123,10 +123,10 @@ def test_register_missing_name_is_400(client):
 def test_register_capture_hardware_failure_is_500(client, monkeypatch):
     """Unexpected camera/hw failures surface as 500 with a 'capture_failed' error hint."""
 
-    def boom():
+    def boom(_name):
         raise RuntimeError("camera offline")
 
-    monkeypatch.setattr(capture, "capture_image", boom)
+    monkeypatch.setattr(api_service, "capture_embed_and_save", boom)
     r = client.post(
         "/users/register",
         json={"name": "x"},
@@ -139,10 +139,10 @@ def test_register_capture_hardware_failure_is_500(client, monkeypatch):
 def test_register_value_error_from_embed_is_422(client, monkeypatch):
     """A ValueError from embed_face (e.g. 'no face detected') is a 422 unprocessable-entity, not 500."""
 
-    def no_face(_p):
+    def no_face(_name):
         raise ValueError("no face detected")
 
-    monkeypatch.setattr(capture, "embed_face", no_face)
+    monkeypatch.setattr(api_service, "capture_embed_and_save", no_face)
     r = client.post(
         "/users/register",
         json={"name": "x"},
@@ -200,3 +200,26 @@ def test_toggle_detection_returns_503_without_mqtt(monkeypatch):
             headers={"X-API-Key": "test-key"},
         )
         assert r.status_code == 503
+
+
+def test_dashboard_login_uses_session_not_user_api_key(monkeypatch, isolated_paths, fake_mqtt):
+    """POST /login accepts email/password only; REST API_KEY is enforced server-side elsewhere."""
+    monkeypatch.setattr(config, "API_KEY", "device-secret")
+    monkeypatch.setenv("USER_EMAIL", "u@example.local")
+    monkeypatch.setenv("USER_PASSWORD", "pw")
+
+    app = api_service.create_app(fake_mqtt)
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        r = c.post(
+            "/login",
+            data={"email": "u@example.local", "password": "wrong"},
+        )
+        assert r.status_code == 401
+
+        r2 = c.post(
+            "/login",
+            data={"email": "u@example.local", "password": "pw"},
+        )
+        assert r2.status_code == 302
+        assert "/dashboard" in (r2.headers.get("Location") or "")

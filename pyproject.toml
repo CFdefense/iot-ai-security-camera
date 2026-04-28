@@ -79,7 +79,7 @@ convention = "google"
 
 [tool.ruff.lint.isort]
 # Configure import sorting
-known-first-party = ["src", "tests"]
+known-first-party = ["src", "tests", "persistence", "picam", "services"]
 combine-as-imports = true
 
 [tool.ruff.format]

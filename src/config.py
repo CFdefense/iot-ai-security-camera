@@ -19,7 +19,9 @@ CAPTURES_DIR = PROJECT_ROOT / "captures"
 DB_PATH = Path(os.environ.get("CAMERA_DB_PATH", PROJECT_ROOT / "whitelist.sqlite"))
 
 # Serial Configuration
-SERIAL_PORT = os.environ.get("SERIAL_PORT", "/dev/ttyACM0")
+# Set SERIAL_PORT= (empty value) in .env to skip the Arduino serial bridge on laptops without hardware.
+SERIAL_PORT_RAW = os.environ.get("SERIAL_PORT")
+SERIAL_PORT = SERIAL_PORT_RAW.strip() if SERIAL_PORT_RAW is not None else "/dev/ttyACM0"
 SERIAL_BAUD = int(os.environ.get("SERIAL_BAUD", "115200"))
 SERIAL_TIMEOUT = float(os.environ.get("SERIAL_TIMEOUT", "1.0"))
 
@@ -46,8 +48,13 @@ SENSOR_ID = os.environ.get("SENSOR_ID", "front_door_cam")
 # Binds to the local network interface only (not 0.0.0.0), per the
 API_HOST = os.environ.get("API_HOST", "127.0.0.1")
 API_PORT = int(os.environ.get("API_PORT", "5000"))
-API_KEY = os.environ.get("API_KEY", "")
+API_KEY = os.environ.get("API_KEY", "").strip()
 API_KEY_HEADER = "X-API-Key"
+
+# Web dashboard session auth; dashboard_users reset from env once at Flask startup (create_app).
+SESSION_SECRET = os.environ.get("SESSION_SECRET", "")
+USER_EMAIL = os.environ.get("USER_EMAIL", "").strip()
+USER_PASSWORD = os.environ.get("USER_PASSWORD", "")
 
 for d in (ARTIFACTS_DIR, CAPTURES_DIR):
     d.mkdir(parents=True, exist_ok=True)
