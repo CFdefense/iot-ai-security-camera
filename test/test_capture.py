@@ -1,12 +1,12 @@
-from src.picam import imaging
+from src.gateway.picam import imaging
 
 
-def test_capture_image_creates_jpg_in_captures_dir(isolated_paths):
-    """capture_image writes a .jpg under config.CAPTURES_DIR so MQTT publishers have a valid image_ref."""
-    path = imaging.capture_image()
-    assert path.exists()
-    assert path.suffix == ".jpg"
-    assert path.parent == isolated_paths / "captures"
+def test_capture_frame_jpeg_returns_minimal_jpeg_bytes():
+    """capture_frame_jpeg returns in-memory JPEG bytes (no captures/ directory)."""
+    raw = imaging.capture_frame_jpeg()
+    assert raw.startswith(b"\xff\xd8")
+    assert raw.endswith(b"\xff\xd9")
+    assert len(raw) > 8
 
 
 def test_embed_face_returns_128_floats_in_range(tmp_path):

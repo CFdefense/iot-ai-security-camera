@@ -3,7 +3,7 @@ import threading
 
 import pytest
 
-from src import serial_bridge
+from src.gateway import serial_bridge
 
 
 class FakeSerial:

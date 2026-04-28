@@ -46,7 +46,7 @@ packages = ["src"]
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-extend-exclude = ["artifacts", "captures", "docs"]
+extend-exclude = ["artifacts", "docs"]
 
 [tool.ruff.lint]
 # Enable common Python linting rules
@@ -79,7 +79,7 @@ convention = "google"
 
 [tool.ruff.lint.isort]
 # Configure import sorting
-known-first-party = ["src", "tests", "persistence", "picam", "services"]
+known-first-party = ["src", "gateway", "tests"]
 combine-as-imports = true
 
 [tool.ruff.format]

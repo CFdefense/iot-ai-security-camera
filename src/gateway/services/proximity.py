@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from .. import config
-from ..mqtt_service import MqttPublisher
+from ...mqtt_service import MqttPublisher
 from ..persistence import db
 from ..picam import imaging
+from ..picam.helpers import utc_capture_timestamp_slug
 
 
 def handle_trigger(mqtt_service: MqttPublisher) -> dict:
@@ -18,15 +17,16 @@ def handle_trigger(mqtt_service: MqttPublisher) -> dict:
 
     mqtt_service.publish_event("proximity_detected")
 
-    image_path: Path = imaging.capture_image()
+    raw_jpeg = imaging.capture_frame_jpeg()
+    cap_ref = f"inline:{utc_capture_timestamp_slug()}"
     try:
-        embedding = imaging.embed_face(image_path)
+        embedding = imaging.embed_face_bytes(raw_jpeg)
     except ValueError as e:
         mqtt_service.publish_event(
             "low_quality_capture",
-            {"image_ref": str(image_path), "reason": str(e)},
+            {"image_ref": cap_ref, "reason": str(e)},
         )
-        return {"status": "low_quality", "image_ref": str(image_path)}
+        return {"status": "low_quality", "image_ref": cap_ref}
 
     with db.connect() as conn:
         name, sim = db.best_match(conn, embedding)
@@ -34,13 +34,13 @@ def handle_trigger(mqtt_service: MqttPublisher) -> dict:
     if name is not None and sim >= config.MATCH_THRESHOLD:
         mqtt_service.publish_event(
             "access_granted",
-            {"user": name, "confidence": round(sim, 4), "image_ref": str(image_path)},
+            {"user": name, "confidence": round(sim, 4), "image_ref": cap_ref},
         )
         return {"status": "granted", "user": name, "confidence": sim}
 
     mqtt_service.publish_alert(
         event_type="unknown_face_detected",
         confidence=sim,
-        image_ref=image_path,
+        image_ref=cap_ref,
     )
-    return {"status": "unknown", "confidence": sim, "image_ref": str(image_path)}
+    return {"status": "unknown", "confidence": sim, "image_ref": cap_ref}

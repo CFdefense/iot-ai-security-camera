@@ -4,7 +4,9 @@ import time
 
 import pytest
 
-from src import config, mqtt_service
+from src.gateway import config
+
+from src import mqtt_service
 
 
 class FakeMqttClient:

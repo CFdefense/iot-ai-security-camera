@@ -23,12 +23,13 @@ import logging
 import signal
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol
 
 import paho.mqtt.client as mqtt
 
-from . import config
+from .gateway import config
 
 log = logging.getLogger("mqtt_service")
 
@@ -81,6 +82,8 @@ class MqttService:
         port: int = config.MQTT_PORT,
         client_id: str = config.MQTT_CLIENT_ID,
         sensor_id: str = config.SENSOR_ID,
+        *,
+        on_publish: Callable[[str, dict[str, Any]], None] | None = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -92,6 +95,10 @@ class MqttService:
         self._detection_enabled = True
         self._connected = False
         self._lock = threading.Lock()
+        self._on_publish = on_publish
+        self._last_status_payload: dict[str, Any] | None = None
+        self._last_status_received_at: float | None = None
+        self._client.on_message = self._on_message
 
     @property
     def broker_connected(self) -> bool:
@@ -121,6 +128,25 @@ class MqttService:
     def _on_connect(self, client, userdata, flags, rc):
         self._connected = rc == 0
         log.info("mqtt connected rc=%s", rc)
+        if rc == 0:
+            try:
+                client.subscribe(config.TOPIC_STATUS, qos=1)
+                log.debug("subscribed %s qos=1 for dashboard snapshot", config.TOPIC_STATUS)
+            except Exception:
+                log.debug("mqtt subscribe failed", exc_info=True)
+
+    def _on_message(self, client, userdata, msg):
+        """Record retained/live JSON from ``home/security/status`` for the dashboard."""
+        if msg.topic != config.TOPIC_STATUS:
+            return
+        try:
+            blob = json.loads(msg.payload.decode("utf-8"))
+        except Exception:
+            log.debug("ignore non-json status payload", exc_info=True)
+            return
+        if not isinstance(blob, dict):
+            return
+        self._merge_status_snapshot(blob)
 
     def _on_disconnect(self, client, userdata, rc):
         self._connected = False
@@ -159,6 +185,14 @@ class MqttService:
         with _EVENTS_LOG.open("a", encoding="utf-8") as f:
             f.write(body + "\n")
         log.info("pub %s %s", topic, body)
+        if topic == config.TOPIC_STATUS:
+            self._merge_status_snapshot(dict(payload))
+        # SSE notification stream listens on EventHub: only HOME/security/events (alerts + status elsewhere).
+        if self._on_publish and topic == config.TOPIC_EVENTS:
+            try:
+                self._on_publish(topic, dict(payload))
+            except Exception:
+                log.debug("on_publish hook raised", exc_info=True)
 
     def publish_alert(
         self,
@@ -188,6 +222,19 @@ class MqttService:
         if data:
             msg.update(data)
         self._publish(config.TOPIC_EVENTS, msg, qos=0)
+
+    def _merge_status_snapshot(self, data: dict[str, Any]) -> None:
+        with self._lock:
+            self._last_status_payload = data
+            self._last_status_received_at = time.time()
+
+    def dashboard_status_bundle(self) -> dict[str, Any]:
+        """Return ``last_status_at`` plus topic id for ``/dashboard/status.json``."""
+        with self._lock:
+            payload = self._last_status_payload
+        stamp = payload.get("timestamp") if isinstance(payload, dict) else None
+        last_at = stamp if isinstance(stamp, str) else None
+        return {"last_status_at": last_at, "status_topic": config.TOPIC_STATUS}
 
     def publish_status(self) -> None:
         """Publish a heartbeat to home/security/status."""

@@ -1,6 +1,7 @@
 import pytest
 
-from src import api_service, config
+from src import api_service
+from src.gateway import config
 
 
 class FakeMqtt:
@@ -40,6 +41,13 @@ class FakeMqtt:
         self._enabled = bool(enabled)
         self.events.append(("detection_toggle", {"enabled": self._enabled}))
 
+    def dashboard_status_bundle(self):
+        """Thin snapshot for /dashboard/status.json tests."""
+        return {
+            "last_status_at": "2026-04-01T00:00:00Z",
+            "status_topic": "home/security/status",
+        }
+
 
 @pytest.fixture
 def fake_mqtt():
@@ -56,6 +64,45 @@ def client(monkeypatch, isolated_paths, fake_mqtt):
     with app.test_client() as c:
         yield c
 
+
+def test_dashboard_events_stream_requires_login(monkeypatch, isolated_paths):
+    """SSE endpoint is session-guarded like the rest of the dashboard."""
+    monkeypatch.setattr(config, "API_KEY", "test-key")
+    app = api_service.create_app(FakeMqtt())
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        assert c.get("/dashboard/events/stream").status_code == 302
+
+
+def test_dashboard_status_json_requires_login(monkeypatch, isolated_paths):
+    """Health snapshot requires a browser session."""
+    monkeypatch.setattr(config, "API_KEY", "test-key")
+    app = api_service.create_app(FakeMqtt())
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        assert c.get("/dashboard/status.json").status_code == 302
+
+
+def test_dashboard_status_json_ok_when_logged_in(monkeypatch, isolated_paths, fake_mqtt):
+    """GET /dashboard/status.json returns component rows once session is established."""
+    monkeypatch.setattr(config, "API_KEY", "device-secret")
+    monkeypatch.setenv("USER_EMAIL", "u@example.local")
+    monkeypatch.setenv("USER_PASSWORD", "pw")
+
+    app = api_service.create_app(fake_mqtt)
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        assert c.post(
+            "/login",
+            data={"email": "u@example.local", "password": "pw"},
+        ).status_code in (302, 200)
+
+        r = c.get("/dashboard/status.json")
+
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body.get("last_status_at") == "2026-04-01T00:00:00Z"
+    assert body.get("status_topic") == "home/security/status"
 
 def test_healthz_is_public_and_reports_detection_state(client):
     """/healthz has no API-key check (so kube/monitoring can probe it) and reports the detection flag."""

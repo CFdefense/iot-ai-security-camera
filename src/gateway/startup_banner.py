@@ -88,7 +88,7 @@ def format_banner_lines(mqtt_svc: Any) -> list[str]:
             (
                 "API key: configured for REST guards"
                 if config.API_KEY
-                else "API key: MISSING (REST /users/register etc return 500)"
+                else "API key: MISSING — set API_KEY (REST 500, /login 503)"
             ),
         ),
         sep_dash,

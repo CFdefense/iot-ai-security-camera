@@ -32,12 +32,13 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request
 
-from . import config
+from .gateway import config, web_ui
+from .gateway.event_hub import EventHub
+from .gateway.persistence import db
+from .gateway.serial_bridge import run_serial_bridge
+from .gateway.services.register_user import capture_embed_and_save
+from .gateway.startup_banner import log_banner
 from .mqtt_service import MqttPublisher, MqttService
-from .persistence import db
-from .serial_bridge import run_serial_bridge
-from .services.register_user import capture_embed_and_save
-from .startup_banner import log_banner
 
 log = logging.getLogger("api_service")
 
@@ -55,13 +56,14 @@ def _require_api_key(fn):
     return wrapper
 
 
-def create_app(mqtt_service: MqttPublisher | None = None) -> Flask:
+def create_app(mqtt_service: MqttPublisher | None = None, *, event_hub: EventHub | None = None) -> Flask:
     """Build and configure the Flask app.
 
     Args:
         mqtt_service: Anything satisfying :class:`MqttPublisher` (the real
             :class:`MqttService` or a test fake). Pass ``None`` to disable
             MQTT-backed routes (they will return 503).
+        event_hub: Shared :class:`EventHub` for dashboard live MQTT view; if omitted, a new hub is used.
 
     Returns:
         A ready-to-run Flask application with the private camera routes and dashboard UI.
@@ -69,9 +71,10 @@ def create_app(mqtt_service: MqttPublisher | None = None) -> Flask:
     with db.connect() as conn:
         db.reset_dashboard_credentials_from_env(conn)
 
-    pkg = Path(__file__).resolve().parent
+    pkg = Path(__file__).resolve().parent / "gateway"
     app = Flask(__name__, template_folder=str(pkg / "templates"))
     app.config["mqtt"] = mqtt_service
+    app.config["event_hub"] = event_hub if event_hub is not None else EventHub()
 
     @app.get("/healthz")
     def healthz():
@@ -136,8 +139,6 @@ def create_app(mqtt_service: MqttPublisher | None = None) -> Flask:
         mq.set_detection(enabled)
         return jsonify({"detection_enabled": enabled})
 
-    from . import web_ui
-
     web_ui.init_app(app)
     return app
 
@@ -148,11 +149,12 @@ def main() -> None:
 
     if not config.API_KEY:
         log.warning(
-            "API_KEY is empty; /users/register and /detection/toggle will return 500. "
-            "Set the API_KEY environment variable before starting the service."
+            "API_KEY is empty; guarded REST routes return 500 and GET/POST /login return 503. "
+            "Set API_KEY (e.g. in .env) before starting the service."
         )
 
-    mqtt_svc = MqttService()
+    hub = EventHub()
+    mqtt_svc = MqttService(on_publish=hub.emit)
     mqtt_svc.start()
 
     stop_event = threading.Event()
@@ -179,7 +181,7 @@ def main() -> None:
     else:
         log.info("SERIAL_PORT is blank — Arduino serial bridge skipped (dashboard/MQTT still active).")
 
-    app = create_app(mqtt_svc)
+    app = create_app(mqtt_svc, event_hub=hub)
     log_banner(mqtt_svc)
     try:
         app.run(host=config.API_HOST, port=config.API_PORT, debug=False, use_reloader=False)

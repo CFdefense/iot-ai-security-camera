@@ -12,10 +12,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]  # repo root (not ``src/``)
 load_dotenv(PROJECT_ROOT / ".env")
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
-CAPTURES_DIR = PROJECT_ROOT / "captures"
 DB_PATH = Path(os.environ.get("CAMERA_DB_PATH", PROJECT_ROOT / "whitelist.sqlite"))
 
 # Serial Configuration
@@ -56,5 +55,4 @@ SESSION_SECRET = os.environ.get("SESSION_SECRET", "")
 USER_EMAIL = os.environ.get("USER_EMAIL", "").strip()
 USER_PASSWORD = os.environ.get("USER_PASSWORD", "")
 
-for d in (ARTIFACTS_DIR, CAPTURES_DIR):
-    d.mkdir(parents=True, exist_ok=True)
+ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)

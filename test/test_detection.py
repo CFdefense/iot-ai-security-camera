@@ -1,8 +1,14 @@
 import pytest
 
-from src.persistence import db
-from src.picam import imaging
-from src.services import proximity
+from src.gateway.persistence import db
+from src.gateway.picam import imaging
+from src.gateway.services import proximity
+
+
+@pytest.fixture(autouse=True)
+def _isolate(isolated_paths):
+    # every test in this module runs with its own tmp DB + artifacts dir
+    return isolated_paths
 
 
 class RecordingMqtt:
@@ -38,12 +44,6 @@ class RecordingMqtt:
         self._enabled = bool(enabled)
 
 
-@pytest.fixture(autouse=True)
-def _isolate(isolated_paths):
-    # every test in this module runs with its own tmp DB + captures dir
-    return isolated_paths
-
-
 def test_trigger_ignored_when_detection_disabled():
     """When the user has toggled detection off, a trigger must short-circuit with no alert."""
     mq = RecordingMqtt(enabled=False)
@@ -55,7 +55,7 @@ def test_trigger_ignored_when_detection_disabled():
 
 def test_trigger_with_unknown_face_publishes_alert(monkeypatch):
     """Embedding below threshold against an empty whitelist must publish unknown_face_detected on alerts."""
-    monkeypatch.setattr(imaging, "embed_face", lambda _p: [0.0] * 128)
+    monkeypatch.setattr(imaging, "embed_face_bytes", lambda _b: [0.0] * 128)
     mq = RecordingMqtt()
     result = proximity.handle_trigger(mq)
     assert result["status"] == "unknown"
@@ -67,7 +67,7 @@ def test_trigger_with_unknown_face_publishes_alert(monkeypatch):
 def test_trigger_with_known_face_grants_access(monkeypatch):
     """Embedding that exactly matches a whitelisted user must emit access_granted, not an alert."""
     known = [0.1] * 128
-    monkeypatch.setattr(imaging, "embed_face", lambda _p: known)
+    monkeypatch.setattr(imaging, "embed_face_bytes", lambda _b: known)
     with db.connect() as conn:
         db.add_user(conn, "alice", known)
 
@@ -81,12 +81,12 @@ def test_trigger_with_known_face_grants_access(monkeypatch):
 
 
 def test_trigger_with_low_quality_capture_logs_event(monkeypatch):
-    """A ValueError from embed_face (e.g. blurry image) must be logged as low_quality_capture with no alert."""
+    """A ValueError from embed_face_bytes must be logged as low_quality_capture with no alert."""
 
-    def bad_embed(_p):
+    def bad_embed(_b):
         raise ValueError("no face detected")
 
-    monkeypatch.setattr(imaging, "embed_face", bad_embed)
+    monkeypatch.setattr(imaging, "embed_face_bytes", bad_embed)
     mq = RecordingMqtt()
     result = proximity.handle_trigger(mq)
     assert result["status"] == "low_quality"

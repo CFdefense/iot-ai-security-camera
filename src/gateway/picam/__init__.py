@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-from .imaging import capture_image, capture_registration_jpeg, embed_face, embed_face_bytes
+from .imaging import (
+    capture_frame_jpeg,
+    capture_registration_jpeg,
+    embed_face,
+    embed_face_bytes,
+)
 
 __all__ = [
-    "capture_image",
+    "capture_frame_jpeg",
     "capture_registration_jpeg",
     "embed_face",
     "embed_face_bytes",

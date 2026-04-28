@@ -11,28 +11,25 @@ import logging
 import time
 from pathlib import Path
 
-from .. import config
 from .helpers import utc_capture_timestamp_slug
 
 log = logging.getLogger("picam.imaging")
 
 
-def capture_image() -> Path:
-    """Trigger the Pi camera and return the path to the saved JPEG.
+def capture_frame_jpeg() -> bytes:
+    """Capture one frame as JPEG bytes (in memory; no on-disk ``captures/``).
 
-    Replace with ``picamera2`` on the Pi. The stub creates an empty file under
-    ``captures/`` so MQTT publishers retain a stable ``image_ref``.
+    Stub: minimal synthetic JPEG. On the Pi, replace with ``picamera2`` buffer output.
     """
-    out = config.CAPTURES_DIR / f"{utc_capture_timestamp_slug()}.jpg"
-    out.touch(exist_ok=True)
-    log.info("captured %s", out)
-    return out
+    unique = hashlib.sha256(str(time.time_ns()).encode()).digest()[:16]
+    raw = b"\xff\xd8\xff\xdb" + unique + b"\xff\xd9"
+    log.info("captured frame (%s bytes)", len(raw))
+    return raw
 
 
 def capture_registration_jpeg() -> bytes:
-    """Capture a registration JPEG in memory only (nothing under captures/)."""
-    unique = hashlib.sha256(str(time.time_ns()).encode()).digest()[:16]
-    return b"\xff\xd8\xff\xdb" + unique + b"\xff\xd9"
+    """Registration capture; same pipeline as :func:`capture_frame_jpeg` in the stub."""
+    return capture_frame_jpeg()
 
 
 def embed_face_bytes(raw: bytes) -> list[float]:

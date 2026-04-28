@@ -167,7 +167,7 @@ curl http://127.0.0.1:5000/healthz
   "timestamp": "2026-04-14T18:32:05Z",
   "event_type": "unknown_face_detected",
   "confidence": 0.34,
-  "image_ref": "captures/2026-04-14_183205.jpg",
+  "image_ref": "inline:2026-04-14_183205",
   "sensor_id": "front_door_cam"
 }
 ```
