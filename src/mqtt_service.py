@@ -34,6 +34,7 @@ from .core import config
 log = logging.getLogger("mqtt_service")
 
 _EVENTS_LOG = config.ARTIFACTS_DIR / "mqtt_published.jsonl"
+_STATUS_COMPONENT_KEYS = ("mqtt", "camera", "api", "sensor")
 
 
 class MqttPublisher(Protocol):
@@ -175,10 +176,21 @@ class MqttService:
             return self._detection_enabled
 
     # Publish primitives
-    def _publish(self, topic: str, payload: dict[str, Any], qos: int = 0, retain: bool = False) -> None:
+    def _publish(
+        self,
+        topic: str,
+        payload: dict[str, Any],
+        qos: int = 0,
+        retain: bool = False,
+        *,
+        include_sensor_id: bool = True,
+    ) -> None:
         payload.setdefault("topic", topic)
         payload.setdefault("timestamp", _now_iso())
-        payload.setdefault("sensor_id", self.sensor_id)
+        if include_sensor_id:
+            payload.setdefault("sensor_id", self.sensor_id)
+        else:
+            payload.pop("sensor_id", None)
         body = json.dumps(payload, separators=(",", ":"))
         self._client.publish(topic, payload=body, qos=qos, retain=retain)
         _EVENTS_LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -225,16 +237,83 @@ class MqttService:
 
     def _merge_status_snapshot(self, data: dict[str, Any]) -> None:
         with self._lock:
-            self._last_status_payload = data
+            prev = self._last_status_payload if isinstance(self._last_status_payload, dict) else {}
+            merged = dict(prev)
+            merged.update(data)
+
+            prev_components = prev.get("components")
+            next_components = data.get("components")
+            components: dict[str, Any] = {}
+            if isinstance(prev_components, dict):
+                components.update(prev_components)
+            if isinstance(next_components, dict):
+                components.update(next_components)
+            if components:
+                merged["components"] = components
+
+            self._last_status_payload = merged
             self._last_status_received_at = time.time()
 
+    def _status_state(self, ok: bool | None) -> str:
+        if ok is True:
+            return "up"
+        if ok is False:
+            return "down"
+        return "unknown"
+
+    def publish_component_status(self, component: str, *, state: str) -> None:
+        """Publish a component heartbeat payload to ``home/security/status``."""
+        if component not in _STATUS_COMPONENT_KEYS:
+            raise ValueError(f"unsupported status component: {component}")
+        normalized = (state or "").strip().lower()
+        if normalized not in {"up", "down", "unknown"}:
+            raise ValueError("state must be one of: up, down, unknown")
+        self._publish(
+            config.TOPIC_STATUS,
+            {
+                "event_type": "heartbeat",
+                "components": {
+                    component: {
+                        "state": normalized,
+                    }
+                },
+            },
+            qos=1,
+            retain=True,
+            include_sensor_id=False,
+        )
+
     def dashboard_status_bundle(self) -> dict[str, Any]:
-        """Return ``last_status_at`` plus topic id for ``/dashboard/status.json``."""
+        """Return latest status snapshot details for ``/dashboard/status.json``."""
         with self._lock:
             payload = self._last_status_payload
+            connected = self._connected
+            detection_enabled = self._detection_enabled
+            started_ts = self._started_ts
+        payload_out: dict[str, Any] | None = dict(payload) if isinstance(payload, dict) else None
+        if payload_out is None:
+            payload_out = {
+                "event_type": "heartbeat",
+                "sensor_id": self.sensor_id,
+            }
+        # Prefer live in-process state so startup race/stale retained payload
+        # does not falsely show MQTT as offline in the dashboard.
+        payload_out["connected"] = connected
+        payload_out["detection_enabled"] = detection_enabled
+        payload_out["uptime_sec"] = int(time.time() - started_ts)
+        components = payload_out.get("components")
+        merged_components: dict[str, Any] = {}
+        if isinstance(components, dict):
+            merged_components.update(components)
+        merged_components["mqtt"] = {"state": self._status_state(connected)}
+        payload_out["components"] = merged_components
         stamp = payload.get("timestamp") if isinstance(payload, dict) else None
         last_at = stamp if isinstance(stamp, str) else None
-        return {"last_status_at": last_at, "status_topic": config.TOPIC_STATUS}
+        return {
+            "last_status_at": last_at,
+            "status_topic": config.TOPIC_STATUS,
+            "status_payload": payload_out,
+        }
 
     def publish_status(self) -> None:
         """Publish a heartbeat to home/security/status."""
@@ -245,6 +324,11 @@ class MqttService:
                 "uptime_sec": int(time.time() - self._started_ts),
                 "detection_enabled": self.detection_enabled,
                 "connected": self._connected,
+                "components": {
+                    "mqtt": {
+                        "state": self._status_state(self._connected),
+                    }
+                },
             },
             retain=True,
         )

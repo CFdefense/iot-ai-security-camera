@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import queue
 from datetime import UTC, datetime
 from functools import wraps
+from pathlib import Path
 
 from flask import (
     Flask,
@@ -19,12 +21,13 @@ from flask import (
     url_for,
 )
 
+from ..camera.services.register_user import capture_embed_and_save
 from ..core import config
 from ..core.component_status import build_dashboard_status
 from ..data import db
-from ..camera.services.register_user import capture_embed_and_save
 
 log = logging.getLogger("web_ui")
+_EVENTS_LOG = config.ARTIFACTS_DIR / "mqtt_published.jsonl"
 
 
 def init_template_filters(app: Flask) -> None:
@@ -54,6 +57,34 @@ def _login_required(view):
 
 def init_app(app: Flask) -> None:
     """Register browser routes (/login, /dashboard) on the Flask app."""
+
+    def _load_recent_notifications(limit: int = 40) -> list[dict]:
+        """Read recently published MQTT events for initial bell history."""
+        path = Path(_EVENTS_LOG)
+        if not path.exists():
+            return []
+        out: list[dict] = []
+        try:
+            with path.open("r", encoding="utf-8") as fh:
+                for line in fh:
+                    raw = line.strip()
+                    if not raw:
+                        continue
+                    try:
+                        item = json.loads(raw)
+                    except Exception:
+                        continue
+                    if not isinstance(item, dict):
+                        continue
+                    topic = item.get("topic")
+                    if topic != config.TOPIC_EVENTS:
+                        continue
+                    out.append({"topic": topic, "payload": item})
+        except Exception:
+            log.debug("failed loading recent notifications", exc_info=True)
+            return []
+        return out[-limit:][::-1]
+
     secret = config.SESSION_SECRET or "unset-use-SESSION_SECRET"
     app.secret_key = secret
     init_template_filters(app)
@@ -62,11 +93,14 @@ def init_app(app: Flask) -> None:
         with db.connect() as conn:
             users = db.list_users(conn)
             detection_alerts = db.list_recent_detection_alerts(conn, limit=40)
+        mq = app.config.get("mqtt")
+        detection_enabled = mq.detection_enabled if mq is not None else None
         return (
             render_template(
                 "dashboard.html",
                 users=users,
                 detection_alerts=detection_alerts,
+                detection_enabled=detection_enabled,
                 error=error,
                 mqtt_stream_url=url_for("dashboard_events_stream"),
                 status_json_url=url_for("dashboard_status_json"),
@@ -163,6 +197,12 @@ def init_app(app: Flask) -> None:
         """MQTT status snapshot JSON for the authenticated dashboard."""
         return jsonify(build_dashboard_status(app))
 
+    @app.get("/dashboard/events/recent.json")
+    @_login_required
+    def dashboard_recent_events_json():
+        """Recent MQTT events snapshot used to prefill bell notifications."""
+        return jsonify({"events": _load_recent_notifications(limit=40)})
+
     @app.get("/dashboard")
     @_login_required
     def dashboard():
@@ -193,6 +233,18 @@ def init_app(app: Flask) -> None:
                 {"user_id": user_id, "name": name},
             )
 
+        return redirect(url_for("dashboard"))
+
+    @app.post("/dashboard/detection/toggle")
+    @_login_required
+    def dashboard_detection_toggle():
+        enabled_value = (request.form.get("enabled") or "").strip().lower()
+        if enabled_value not in {"on", "off"}:
+            return _render_dashboard("Invalid detection toggle value", status_code=400)
+        mq = app.config.get("mqtt")
+        if mq is None:
+            return _render_dashboard("MQTT service not initialized", status_code=503)
+        mq.set_detection(enabled_value == "on")
         return redirect(url_for("dashboard"))
 
     @app.get("/dashboard/users/<int:user_id>/photo")

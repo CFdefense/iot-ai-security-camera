@@ -39,7 +39,7 @@ from .core.startup_banner import log_banner
 from .data import db
 from .integrations.serial_bridge import run_serial_bridge
 from .mqtt_service import MqttPublisher, MqttService
-from .ui import web_ui
+from .web import web_ui
 
 log = logging.getLogger("api_service")
 
@@ -72,8 +72,13 @@ def create_app(mqtt_service: MqttPublisher | None = None, *, event_hub: EventHub
     with db.connect() as conn:
         db.reset_dashboard_credentials_from_env(conn)
 
-    pkg = Path(__file__).resolve().parent / "ui"
-    app = Flask(__name__, template_folder=str(pkg / "templates"))
+    pkg = Path(__file__).resolve().parent / "web"
+    app = Flask(
+        __name__,
+        template_folder=str(pkg / "templates"),
+        static_folder=str(pkg / "static"),
+        static_url_path="/static",
+    )
     app.config["mqtt"] = mqtt_service
     app.config["event_hub"] = event_hub if event_hub is not None else EventHub()
 
@@ -165,6 +170,17 @@ def main() -> None:
         daemon=True,
     )
     hb_thread.start()
+
+    def _api_status_heartbeat() -> None:
+        while not stop_event.is_set():
+            try:
+                mqtt_svc.publish_component_status("api", state="up")
+            except Exception as e:
+                log.debug("api status heartbeat publish failed: %s", e)
+            stop_event.wait(20)
+
+    api_status_thread = threading.Thread(target=_api_status_heartbeat, daemon=True)
+    api_status_thread.start()
 
     if config.SERIAL_PORT:
         serial_thread = threading.Thread(

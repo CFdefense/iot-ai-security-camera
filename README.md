@@ -78,6 +78,7 @@ publishes are dropped until the broker is up. Easiest local option is
 # (avoids flaky `brew services` / launchd errors):
 brew install mosquitto
 mosquitto -c dev/mosquitto.conf -v
+
 # Tip: if `mosquitto` isn't on PATH, use the full path:
 # /opt/homebrew/opt/mosquitto/sbin/mosquitto -c dev/mosquitto.conf -v
 
