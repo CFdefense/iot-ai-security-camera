@@ -3,7 +3,7 @@ __pycache__/
 .venv/
 venv/
 .env
-# artifacts/
+artifacts/
 *.sqlite
 .pytest_cache/
 
