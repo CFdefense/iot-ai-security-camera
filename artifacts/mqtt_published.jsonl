@@ -68,3 +68,5 @@
 {"event_type":"heartbeat","uptime_sec":0,"detection_enabled":true,"connected":false,"topic":"home/security/status","timestamp":"2026-04-28T00:47:04Z","sensor_id":"front_door_cam"}
 {"event_type":"heartbeat","uptime_sec":60,"detection_enabled":true,"connected":true,"topic":"home/security/status","timestamp":"2026-04-28T00:48:04Z","sensor_id":"front_door_cam"}
 {"event_type":"heartbeat","uptime_sec":0,"detection_enabled":true,"connected":false,"topic":"home/security/status","timestamp":"2026-04-28T00:56:28Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":0,"detection_enabled":true,"connected":false,"topic":"home/security/status","timestamp":"2026-04-28T00:57:40Z","sensor_id":"front_door_cam"}
+{"event_type":"heartbeat","uptime_sec":0,"detection_enabled":true,"connected":false,"topic":"home/security/status","timestamp":"2026-04-28T00:57:49Z","sensor_id":"front_door_cam"}

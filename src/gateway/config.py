@@ -46,7 +46,9 @@ SENSOR_ID = os.environ.get("SENSOR_ID", "front_door_cam")
 # REST API configuration
 # Binds to the local network interface only (not 0.0.0.0), per the
 API_HOST = os.environ.get("API_HOST", "127.0.0.1")
-API_PORT = int(os.environ.get("API_PORT", "5000"))
+# Default 5050: on macOS, AirPlay Receiver often listens on TCP 5000 — browsers then
+# hit that service (403, no Flask logs) while camera-service appears "healthy".
+API_PORT = int(os.environ.get("API_PORT", "5050"))
 API_KEY = os.environ.get("API_KEY", "").strip()
 API_KEY_HEADER = "X-API-Key"
 
