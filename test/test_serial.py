@@ -59,20 +59,19 @@ class RecordingMqtt:
 
 def test_should_trigger_accepts_only_expected_events():
     """``should_trigger`` is True only for the expected ``event_type`` values."""
-    assert serial_bridge.should_trigger({"event_type": "proximity_detected"}) is True
-    assert serial_bridge.should_trigger({"event_type": "confirmed_trigger"}) is True
-    assert serial_bridge.should_trigger({"event_type": "sensor_triggered"}) is True
+    assert serial_bridge.should_trigger({"event_type": "obstacle_detected"}) is True
+    assert serial_bridge.should_trigger({"event_type": "obstacle_cleared"}) is False
     assert serial_bridge.should_trigger({"event_type": "heartbeat"}) is False
     assert serial_bridge.should_trigger({"event_type": "sample"}) is False
     assert serial_bridge.should_trigger({}) is False
 
 
 def test_run_serial_bridge_logs_and_triggers_detection(monkeypatch, isolated_paths):
-    """A confirmed trigger line runs detection, logs JSON, and publishes MQTT events."""
+    """An obstacle-detected line runs detection, logs JSON, and publishes MQTT events."""
     stop = threading.Event()
     mqtt = RecordingMqtt()
 
-    line = json.dumps({"event_type": "confirmed_trigger", "blocked": True})
+    line = json.dumps({"event_type": "obstacle_detected", "blocked": True})
     fake_serial = FakeSerial([line], stop)
 
     monkeypatch.setattr(serial_bridge.serial, "Serial", lambda *args, **kwargs: fake_serial)
@@ -101,7 +100,7 @@ def test_run_serial_bridge_logs_and_triggers_detection(monkeypatch, isolated_pat
     assert log_file.exists()
     lines = log_file.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 1
-    assert json.loads(lines[0])["event_type"] == "confirmed_trigger"
+    assert json.loads(lines[0])["event_type"] == "obstacle_detected"
     assert fake_serial.closed is True
 
 

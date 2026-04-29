@@ -6,9 +6,9 @@ import threading
 
 import serial
 
-from ..mqtt_service import MqttPublisher
-from ..core import config
 from ..camera.services import proximity
+from ..core import config
+from ..mqtt_service import MqttPublisher
 
 log = logging.getLogger("serial_bridge")
 
@@ -31,12 +31,9 @@ def format_serial_open_error(port: str, exc: BaseException) -> str:
 
 
 def should_trigger(msg: dict) -> bool:
-    """Return True only for confirmed Arduino trigger events.
-
-    Adjust this logic to match your actual JSON schema.
-    """
+    """Return True only for Arduino obstacle-detected trigger events."""
     event_type = msg.get("event_type")
-    return event_type in {"proximity_detected", "confirmed_trigger", "sensor_triggered"}
+    return event_type == "obstacle_detected"
 
 
 def run_serial_bridge(
