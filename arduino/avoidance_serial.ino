@@ -45,20 +45,22 @@ void loop() {
     confirmed_blocked = blocked_now;
     event_id++;
 
-    Serial.print("{\"device_id\":\"");
-    Serial.print(DEVICE_ID);
-    Serial.print("\",\"ts_ms\":");
-    Serial.print(now);
-    Serial.print(",\"event_id\":");
-    Serial.print(event_id);
-    Serial.print(",\"event_type\":\"");
-    Serial.print(confirmed_blocked ? "obstacle_detected" : "obstacle_cleared");
-    Serial.print("\",\"sensor\":\"avoidance\",\"value\":");
-    Serial.print(confirmed_blocked ? 1 : 0);
-    Serial.print(",\"rule\":\"");
-    Serial.print(RULE_NAME);
-    Serial.print("\"}");
-    Serial.println();
+    if (blocked_now) {
+      Serial.print("{\"device_id\":\"");
+      Serial.print(DEVICE_ID);
+      Serial.print("\",\"ts_ms\":");
+      Serial.print(now);
+      Serial.print(",\"event_id\":");
+      Serial.print(event_id);
+      Serial.print(",\"event_type\":\"");
+      Serial.print(confirmed_blocked ? "obstacle_detected" : "obstacle_cleared");
+      Serial.print("\",\"sensor\":\"avoidance\",\"value\":");
+      Serial.print(confirmed_blocked ? 1 : 0);
+      Serial.print(",\"rule\":\"");
+      Serial.print(RULE_NAME);
+      Serial.print("\"}");
+      Serial.println();
+    }
   } else {
     // Send heartbeat if no state change, to indicate we're alive
     if (now - last_heartbeat_ms >= HEARTBEAT_PERIOD_MS) {
