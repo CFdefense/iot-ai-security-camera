@@ -1,1 +1,1 @@
-"""Smart Security Camera services (MQTT + REST API)."""
+"""Smart Security Camera package (entry: ``security_system``; MQTT under ``mqtt``)."""

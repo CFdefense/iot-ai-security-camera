@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ...mqtt_service import MqttPublisher
+from ...mqtt import MqttPublisher
 from ...core import config
 from ...data import db
 from ..picam import imaging

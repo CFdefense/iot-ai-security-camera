@@ -12,7 +12,7 @@ from . import config
 def build_dashboard_status(app: Flask) -> dict[str, Any]:
     """Return JSON for ``/dashboard/status.json`` (MQTT status topic timestamps only).
 
-    Uses :meth:`mqtt_service.MqttService.dashboard_status_bundle` when the MQTT client is present.
+    Uses the MQTT client's ``dashboard_status_bundle()`` when present.
     """
     mq = app.config.get("mqtt")
     if mq is None:

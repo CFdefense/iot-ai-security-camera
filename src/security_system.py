@@ -20,7 +20,7 @@ The server binds to ``config.API_HOST`` (default 127.0.0.1) and requires a
 pre-shared key on every non-health route. Requests missing or providing a
 wrong key get a 401, matching the "Security / Safety Note" in the doc.
 
-Run:  uv run camera-service   (or: python -m src.api_service)
+Run: ``uv run security-system`` (or: ``python -m src.security_system``).
 """
 
 from __future__ import annotations
@@ -38,10 +38,10 @@ from .core.event_hub import EventHub
 from .core.startup_banner import log_banner
 from .data import db
 from .integrations.serial_bridge import run_serial_bridge
-from .mqtt_service import MqttPublisher, MqttService
+from .mqtt import MqttPublisher, MqttService
 from .web import web_ui
 
-log = logging.getLogger("api_service")
+log = logging.getLogger("security_system")
 
 
 def _require_api_key(fn):

@@ -1,18 +1,10 @@
-"""MQTT publisher service for the Smart Security Camera.
+"""MQTT publisher implementation (used only from ``security_system``).
 
 Publishes to the three topics defined in docs/Architecture.pdf:
 
   home/security/alerts  - unknown_face_detected (drives mobile notifications)
   home/security/events  - proximity / access_granted / detection_toggle / low_quality_capture
   home/security/status  - 60s heartbeat with uptime + detection state
-
-Run directly to start a heartbeat loop so the broker always sees a live
-camera device:
-
-    python -m src.mqtt_service
-
-Other modules (the REST API, the detection loop) import ``MqttService`` and
-call ``publish_alert`` / ``publish_event`` when they have something to report.
 """
 
 from __future__ import annotations
@@ -20,7 +12,6 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
-import signal
 import threading
 import time
 from collections.abc import Callable
@@ -29,9 +20,9 @@ from typing import Any, Protocol
 
 import paho.mqtt.client as mqtt
 
-from .core import config
+from ..core import config
 
-log = logging.getLogger("mqtt_service")
+log = logging.getLogger("mqtt.service")
 
 _EVENTS_LOG = config.ARTIFACTS_DIR / "mqtt_published.jsonl"
 _STATUS_COMPONENT_KEYS = ("mqtt", "camera", "api", "sensor")
@@ -348,9 +339,8 @@ class MqttService:
     ) -> None:
         """Publish a heartbeat to ``home/security/status`` every ``interval_sec``.
 
-        Blocks the calling thread; intended to be run either as the main
-        thread (see :func:`main`) or inside a dedicated daemon thread from
-        the REST API.
+        Blocks the calling thread; intended to be run inside a dedicated daemon
+        thread from ``security_system``.
 
         Args:
             interval_sec: Seconds between heartbeats. Defaults to
@@ -364,28 +354,3 @@ class MqttService:
             except Exception as e:  # broker may be briefly unavailable
                 log.warning("heartbeat publish failed: %s", e)
             stop_event.wait(interval_sec)
-
-
-def main() -> None:
-    """Run the MQTT service standalone: connect + heartbeat until SIGINT/SIGTERM."""
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
-    svc = MqttService()
-    svc.start()
-
-    stop_event = threading.Event()
-
-    def _handle_signal(signum, frame):
-        log.info("received signal %s, stopping", signum)
-        stop_event.set()
-
-    signal.signal(signal.SIGINT, _handle_signal)
-    signal.signal(signal.SIGTERM, _handle_signal)
-
-    try:
-        svc.run_heartbeat(stop_event=stop_event)
-    finally:
-        svc.stop()
-
-
-if __name__ == "__main__":
-    main()

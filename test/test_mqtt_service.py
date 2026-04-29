@@ -5,8 +5,7 @@ import time
 import pytest
 
 from src.core import config
-
-from src import mqtt_service
+from src.mqtt import service as mqtt_svc
 
 
 class FakeMqttClient:
@@ -56,9 +55,9 @@ class FakeMqttClient:
 def svc(monkeypatch, tmp_path):
     """MqttService wired to FakeMqttClient and a tmp published-events log."""
     FakeMqttClient.instances.clear()
-    monkeypatch.setattr(mqtt_service.mqtt, "Client", FakeMqttClient)
-    monkeypatch.setattr(mqtt_service, "_EVENTS_LOG", tmp_path / "pub.jsonl")
-    s = mqtt_service.MqttService(host="test", port=1234, client_id="t")
+    monkeypatch.setattr(mqtt_svc.mqtt, "Client", FakeMqttClient)
+    monkeypatch.setattr(mqtt_svc, "_EVENTS_LOG", tmp_path / "pub.jsonl")
+    s = mqtt_svc.MqttService(host="test", port=1234, client_id="t")
     s.start()
     yield s
     s.stop()
@@ -128,7 +127,7 @@ def test_publish_status_is_retained_heartbeat(svc):
 def test_published_messages_are_logged_to_jsonl(svc):
     """Every publish must also be persisted to _EVENTS_LOG (artifacts/mqtt_published.jsonl) for audit."""
     svc.publish_event("x", {"k": 1})
-    log = mqtt_service._EVENTS_LOG
+    log = mqtt_svc._EVENTS_LOG
     lines = [ln for ln in log.read_text().splitlines() if ln.strip()]
     assert len(lines) == 1
     decoded = json.loads(lines[0])

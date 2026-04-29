@@ -19,11 +19,8 @@ dependencies = [
 ]
 
 [project.scripts]
-# Full edge service: HTTP control plane + MQTT publisher + heartbeat in one process.
-camera-service = "src.api_service:main"
-# MQTT-only smoke test (heartbeat + manual publishes). Useful to verify the
-# broker without bringing Flask up.
-camera-mqtt = "src.mqtt_service:main"
+# Edge service: REST + dashboard + MQTT + heartbeat + serial bridge in one process.
+security-system = "src.security_system:main"
 
 [dependency-groups]
 dev = [

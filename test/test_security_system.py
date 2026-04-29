@@ -1,6 +1,6 @@
 import pytest
 
-from src import api_service
+from src import security_system
 from src.core import config
 from src.data import db
 
@@ -8,7 +8,7 @@ from src.data import db
 class FakeMqtt:
     """Structural stand-in for MqttService used by the Flask app.
 
-    Implements just the three members api_service touches (``detection_enabled``,
+    Implements just the three members ``security_system`` touches (``detection_enabled``,
     ``publish_event``, ``set_detection``) and records every call into
     ``self.events`` so tests can assert what the API asked the MQTT layer to do.
     """
@@ -29,7 +29,7 @@ class FakeMqtt:
         self.events.append((event_type, data or {}))
 
     def publish_alert(self, *, event_type, confidence, image_ref, extra=None):
-        """Record an alert publish; api_service doesn't call this but the protocol requires it."""
+        """Record an alert publish; REST handlers don't call this but the protocol requires it."""
         self.events.append(
             (
                 "ALERT:" + event_type,
@@ -60,7 +60,7 @@ def fake_mqtt():
 def client(monkeypatch, isolated_paths, fake_mqtt):
     """Flask test client wired up with a valid API key and the fake MQTT publisher."""
     monkeypatch.setattr(config, "API_KEY", "test-key")
-    app = api_service.create_app(fake_mqtt)
+    app = security_system.create_app(fake_mqtt)
     app.config["TESTING"] = True
     with app.test_client() as c:
         yield c
@@ -69,7 +69,7 @@ def client(monkeypatch, isolated_paths, fake_mqtt):
 def test_dashboard_events_stream_requires_login(monkeypatch, isolated_paths):
     """SSE endpoint is session-guarded like the rest of the dashboard."""
     monkeypatch.setattr(config, "API_KEY", "test-key")
-    app = api_service.create_app(FakeMqtt())
+    app = security_system.create_app(FakeMqtt())
     app.config["TESTING"] = True
     with app.test_client() as c:
         assert c.get("/dashboard/events/stream").status_code == 302
@@ -78,7 +78,7 @@ def test_dashboard_events_stream_requires_login(monkeypatch, isolated_paths):
 def test_dashboard_status_json_requires_login(monkeypatch, isolated_paths):
     """Health snapshot requires a browser session."""
     monkeypatch.setattr(config, "API_KEY", "test-key")
-    app = api_service.create_app(FakeMqtt())
+    app = security_system.create_app(FakeMqtt())
     app.config["TESTING"] = True
     with app.test_client() as c:
         assert c.get("/dashboard/status.json").status_code == 302
@@ -90,7 +90,7 @@ def test_dashboard_status_json_ok_when_logged_in(monkeypatch, isolated_paths, fa
     monkeypatch.setenv("USER_EMAIL", "u@example.local")
     monkeypatch.setenv("USER_PASSWORD", "pw")
 
-    app = api_service.create_app(fake_mqtt)
+    app = security_system.create_app(fake_mqtt)
     app.config["TESTING"] = True
     with app.test_client() as c:
         assert c.post(
@@ -134,7 +134,7 @@ def test_register_with_wrong_api_key_is_unauthorized(client):
 def test_register_returns_500_when_server_has_no_api_key(monkeypatch, isolated_paths):
     """If the server is misconfigured (empty API_KEY env) we fail closed with 500, never silently allow."""
     monkeypatch.setattr(config, "API_KEY", "")
-    app = api_service.create_app(FakeMqtt())
+    app = security_system.create_app(FakeMqtt())
     with app.test_client() as c:
         r = c.post(
             "/users/register",
@@ -175,7 +175,7 @@ def test_register_capture_hardware_failure_is_500(client, monkeypatch):
     def boom(_name):
         raise RuntimeError("camera offline")
 
-    monkeypatch.setattr(api_service, "capture_embed_and_save", boom)
+    monkeypatch.setattr(security_system, "capture_embed_and_save", boom)
     r = client.post(
         "/users/register",
         json={"name": "x"},
@@ -191,7 +191,7 @@ def test_register_value_error_from_embed_is_422(client, monkeypatch):
     def no_face(_name):
         raise ValueError("no face detected")
 
-    monkeypatch.setattr(api_service, "capture_embed_and_save", no_face)
+    monkeypatch.setattr(security_system, "capture_embed_and_save", no_face)
     r = client.post(
         "/users/register",
         json={"name": "x"},
@@ -241,7 +241,7 @@ def test_toggle_detection_requires_enabled_field(client):
 def test_toggle_detection_returns_503_without_mqtt(monkeypatch):
     """If the MQTT service wasn't injected (tests/degraded start) toggling returns 503 instead of crashing."""
     monkeypatch.setattr(config, "API_KEY", "test-key")
-    app = api_service.create_app(mqtt_service=None)
+    app = security_system.create_app(mqtt_service=None)
     with app.test_client() as c:
         r = c.post(
             "/detection/toggle",
@@ -257,7 +257,7 @@ def test_dashboard_login_uses_session_not_user_api_key(monkeypatch, isolated_pat
     monkeypatch.setenv("USER_EMAIL", "u@example.local")
     monkeypatch.setenv("USER_PASSWORD", "pw")
 
-    app = api_service.create_app(fake_mqtt)
+    app = security_system.create_app(fake_mqtt)
     app.config["TESTING"] = True
     with app.test_client() as c:
         r = c.post(
@@ -277,7 +277,7 @@ def test_dashboard_login_uses_session_not_user_api_key(monkeypatch, isolated_pat
 def test_dashboard_alert_photo_requires_login(monkeypatch, isolated_paths):
     """Alert photo route is session-protected like other dashboard endpoints."""
     monkeypatch.setattr(config, "API_KEY", "test-key")
-    app = api_service.create_app(FakeMqtt())
+    app = security_system.create_app(FakeMqtt())
     app.config["TESTING"] = True
     with app.test_client() as c:
         assert c.get("/dashboard/alerts/1/photo").status_code == 302
@@ -297,7 +297,7 @@ def test_dashboard_alert_photo_ok_when_logged_in(monkeypatch, isolated_paths, fa
             capture_image=b"\xff\xd8sample\xff\xd9",
         )
 
-    app = api_service.create_app(fake_mqtt)
+    app = security_system.create_app(fake_mqtt)
     app.config["TESTING"] = True
     with app.test_client() as c:
         c.post("/login", data={"email": "u@example.local", "password": "pw"})

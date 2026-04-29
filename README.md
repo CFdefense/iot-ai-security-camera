@@ -21,8 +21,8 @@ Smart Security Camera for Verified User Access (Computer Vision IoT system).
 ## Repo layout
 
 - `docs/` — design docs and diagrams
-- `src/api_service.py` — combined service entrypoint (REST + dashboard + MQTT threads)
-- `src/mqtt_service.py` — MQTT publish/status logic
+- `src/security_system.py` — single process (REST + dashboard + MQTT + heartbeat + serial bridge)
+- `src/mqtt/` — MQTT client package used by ``security_system``
 - `src/data/db.py` — SQLite users + detection alerts
 - `src/integrations/serial_bridge.py` — Arduino serial trigger bridge
 - `src/web/` — Flask dashboard (`templates/`, `static/`, `web_ui.py`)
@@ -88,19 +88,10 @@ For normal use, run the combined service — it serves the REST control plane
 **and** runs the MQTT publisher + 60s heartbeat in the same process:
 
 ```bash
-uv run camera-service
+uv run security-system
 ```
 
-For broker-wiring smoke tests only, you can start the MQTT side by itself
-(no HTTP, just the heartbeat + manual publishes):
-
-```bash
-uv run camera-mqtt
-```
-
-Either entry point can also be invoked as a module, e.g. `uv run python -m src.api_service`.
-Do **not** run files as scripts (`python src/mqtt_service.py`) — they use relative
-imports and need to be loaded as package members.
+Or: `uv run python -m src.security_system`. Use package imports (not `python path/to/file.py`).
 
 ### 3. Open the dashboard
 

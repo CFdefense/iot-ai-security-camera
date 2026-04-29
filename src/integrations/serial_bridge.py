@@ -8,7 +8,7 @@ import serial
 
 from ..camera.services import proximity
 from ..core import config
-from ..mqtt_service import MqttPublisher
+from ..mqtt import MqttPublisher
 
 log = logging.getLogger("serial_bridge")
 

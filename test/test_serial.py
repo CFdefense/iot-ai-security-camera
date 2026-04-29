@@ -32,7 +32,7 @@ class RecordingMqtt:
     Serial tests monkeypatch :func:`src.services.proximity.handle_trigger`, so
     :meth:`publish_alert` is not exercised; we still provide it (and
     :attr:`detection_enabled` / :meth:`set_detection`) to match
-    :class:`src.mqtt_service.MqttPublisher` if a test ever calls the real
+    :class:`src.mqtt.MqttPublisher` if a test ever calls the real
     :func:`src.services.proximity.handle_trigger` without a stub.
     """
 

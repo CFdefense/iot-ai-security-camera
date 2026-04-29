@@ -1,4 +1,4 @@
-"""Emit startup status banner into INFO logs for ``camera-service``."""
+"""Emit startup status banner into INFO logs for ``security-system``."""
 
 from __future__ import annotations
 
@@ -86,7 +86,7 @@ def format_banner_lines(mqtt_svc: Any) -> list[str]:
 
     return [
         sep_eq,
-        _format_line("camera-service startup"),
+        _format_line("security-system startup"),
         sep_eq,
         _format_line("Components"),
         _format_line("API: UP"),
