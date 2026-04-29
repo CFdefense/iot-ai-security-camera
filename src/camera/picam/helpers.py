@@ -1,4 +1,4 @@
-"""Small helpers shared by Picamera stubs and future Pi implementations."""
+"""Small helpers shared by Picamera capture naming."""
 
 from __future__ import annotations
 
@@ -6,5 +6,5 @@ from datetime import UTC, datetime
 
 
 def utc_capture_timestamp_slug() -> str:
-    """Return a filenames-safe UTC timestamp stem (stub + Pi capture naming)."""
+    """Return a filenames-safe UTC timestamp stem for capture refs."""
     return datetime.now(UTC).strftime("%Y-%m-%d_%H%M%S")

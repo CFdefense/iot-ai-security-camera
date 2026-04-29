@@ -45,19 +45,13 @@ management and [`ruff`](https://docs.astral.sh/ruff/) for lint/format.
 # One-time: install uv (macOS/Linux)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install project deps (incl. dev group) into .venv
 uv sync
 
-# Config
 cp .env.example .env   # then edit API_KEY, MQTT_HOST, etc.
 set -a; source .env; set +a
 ```
 
-On the Raspberry Pi, also pull in the hardware-only extras:
-
-```bash
-uv sync --extra pi
-```
+**Raspberry Pi:** `sudo apt install python3-picamera2 python3-libcamera` (Picamera2 is not on PyPI here). Use a venv with `--system-site-packages` if `import picamera2` fails under `uv run`.
 
 ## Run
 
@@ -201,9 +195,7 @@ curl http://127.0.0.1:5050/healthz
   it to `0.0.0.0` without also putting the service behind a firewall.
 - Every non-health route requires the `X-API-Key` header. Requests missing
   or providing a wrong key get a `401`.
-- The `capture.embed_face` stub hashes image bytes so local runs work
-  without the `face_recognition` library; swap in the real implementation
-  on the Pi (see the docstring in `src/capture.py`).
+- Camera: Picamera2 (OS packages on Pi) plus `face_recognition` / OpenCV from `uv sync`.
 
 ## Status
 
