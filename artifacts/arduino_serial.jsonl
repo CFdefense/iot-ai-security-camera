@@ -1,0 +1,3 @@
+{"event_type": "confirmed_trigger", "blocked": true}
+{"event_type": "sample", "value": 123}
+{"event_type": bad json}
