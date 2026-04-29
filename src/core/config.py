@@ -41,8 +41,10 @@ HEARTBEAT_INTERVAL_SEC = int(os.environ.get("HEARTBEAT_INTERVAL_SEC", "60"))
 # Detection configuration
 # Cosine similarity threshold for face match (see the Architecture document).
 MATCH_THRESHOLD = float(os.environ.get("MATCH_THRESHOLD", "0.6"))
+CAMERA_DETECTION_THRESHOLD = float(os.environ.get("CAMERA_DETECTION_THRESHOLD", "0.6"))
 SENSOR_ID = os.environ.get("SENSOR_ID", "front_door_cam")
 CAMERA_BACKEND = os.environ.get("CAMERA_BACKEND", "stub").strip().lower()
+AI_CAMERA_MODEL = "/usr/share/imx500-models/imx500_network_ssd_mobilenetv2_fpnlite_320x320_pp.rpk"
 
 # REST API configuration
 # Binds to the local network interface only (not 0.0.0.0), per the
