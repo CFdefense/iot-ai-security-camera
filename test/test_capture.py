@@ -1,4 +1,4 @@
-"""Unit tests for imaging (Picamera2 / face_recognition are mocked — no hardware required)."""
+"""Unit tests for imaging (capture / SFace path mocked — no hardware required)."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def test_capture_frame_jpeg_returns_jpeg_bytes(monkeypatch):
 
 
 def test_embed_face_returns_128_floats_in_range(tmp_path, monkeypatch):
-    """Embedding output matches face_recognition shape expectations."""
+    """Embedding output is 128 floats in [-1, 1] (same DB shape as SFace vectors after stub)."""
     monkeypatch.setattr(imaging, "embed_face_bytes", _deterministic_embedding_stub)
 
     img = tmp_path / "fake.jpg"
@@ -66,16 +66,16 @@ def test_embed_face_differs_for_different_bytes(tmp_path, monkeypatch):
 
 
 def test_embed_face_bytes_real_decode_path_imports(monkeypatch):
-    """Sanity check the OpenCV + face_recognition path wires expected numpy output."""
-    fake_rgb = np.zeros((10, 10, 3), dtype=np.uint8)
+    """JPEG decode + ``embed_face_bgr_uint8`` combine to a 128-D vector."""
+    fake_bgr = np.zeros((10, 10, 3), dtype=np.uint8)
 
-    monkeypatch.setattr(imaging.cv2, "imdecode", lambda _a, _f: fake_rgb)
-    monkeypatch.setattr(imaging.cv2, "cvtColor", lambda img, _c: img)
+    monkeypatch.setattr(imaging.cv2, "imdecode", lambda _a, _f: fake_bgr)
 
-    fake_vec = np.ones(128, dtype=np.float64) * 0.25
+    def fake_embed_bgr(img: np.ndarray) -> list[float]:
+        assert img.shape == (10, 10, 3)
+        return [0.25] * 128
 
-    monkeypatch.setattr(imaging.face_recognition, "face_locations", lambda *_a, **_kw: [(0, 10, 10, 0)])
-    monkeypatch.setattr(imaging.face_recognition, "face_encodings", lambda *_a, **_kw: [fake_vec])
+    monkeypatch.setattr(imaging, "embed_face_bgr_uint8", fake_embed_bgr)
 
     out = imaging.embed_face_bytes(b"\xff\xd8\xff\xd9")
     assert len(out) == 128

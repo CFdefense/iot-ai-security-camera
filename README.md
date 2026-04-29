@@ -22,11 +22,12 @@ Smart Security Camera for Verified User Access (Computer Vision IoT system).
 
 - `docs/` — design docs and diagrams
 - `src/security_system.py` — single process (REST + dashboard + MQTT + heartbeat + serial bridge)
-- `src/mqtt/` — MQTT client package used by ``security_system``
+- `src/mqtt/` — MQTT client package used by `security_system`
 - `src/data/db.py` — SQLite users + detection alerts
 - `src/integrations/serial_bridge.py` — Arduino serial trigger bridge
 - `src/web/` — Flask dashboard (`templates/`, `static/`, `web_ui.py`)
 - `src/core/` — shared config, startup banner, status helpers
+- `src/camera/picam/` — capture + OpenCV SFace embeddings (`face_embed.py`, ONNX cache under `picam/models/`)
 - `test/` — pytest suite
 - `.env.example` — configuration template
 
@@ -52,6 +53,8 @@ set -a; source .env; set +a
 ```
 
 **Raspberry Pi:** `sudo apt install python3-picamera2 python3-libcamera` (Picamera2 is not on PyPI here). Use a venv with `--system-site-packages` if `import picamera2` fails under `uv run`.
+
+**Face models:** YuNet + SFace ONNX files download on first recognition/register call (needs network once), or place them under `src/camera/picam/models/` (see that folder’s README). Optional: set `FACE_MODEL_DIR` to a directory containing both `.onnx` files.
 
 ## Run
 
@@ -173,8 +176,8 @@ curl http://127.0.0.1:5050/healthz
   "detection_enabled": true,
   "connected": true,
   "components": {
-    "mqtt": {"state": "up"},
-    "api": {"state": "up"}
+    "mqtt": { "state": "up" },
+    "api": { "state": "up" }
   },
   "sensor_id": "front_door_cam"
 }
@@ -186,7 +189,7 @@ curl http://127.0.0.1:5050/healthz
   it to `0.0.0.0` without also putting the service behind a firewall.
 - Every non-health route requires the `X-API-Key` header. Requests missing
   or providing a wrong key get a `401`.
-- Camera: Picamera2 (OS packages on Pi) plus `face_recognition` / OpenCV from `uv sync`.
+- Camera: Picamera2 on Pi; face embeddings use OpenCV YuNet + SFace ONNX (auto-downloaded to `src/camera/picam/models/`). Re-register users after any embedding-backend change. Tune `MATCH_THRESHOLD` accordingly.
 
 ## Status
 

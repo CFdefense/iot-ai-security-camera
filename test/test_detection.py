@@ -11,6 +11,13 @@ def _isolate(isolated_paths):
     return isolated_paths
 
 
+@pytest.fixture(autouse=True)
+def _stub_camera_jpeg(monkeypatch):
+    """No Picamera2 in test env — provide minimal JPEG bytes for capture."""
+    tiny = b"\xff\xd8\xff\xdb" + bytes(range(16)) + b"\xff\xd9"
+    monkeypatch.setattr(imaging, "capture_frame_jpeg", lambda: tiny)
+
+
 class RecordingMqtt:
     """Drop-in for MqttService that records publish calls without networking."""
 

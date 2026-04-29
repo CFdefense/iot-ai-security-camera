@@ -1,6 +1,7 @@
 import pytest
 
 from src import security_system
+from src.camera.picam import imaging
 from src.core import config
 from src.data import db
 
@@ -54,6 +55,14 @@ class FakeMqtt:
 def fake_mqtt():
     """Fresh FakeMqtt per test so event history doesn't leak between tests."""
     return FakeMqtt()
+
+
+@pytest.fixture(autouse=True)
+def _stub_camera_and_embed(monkeypatch):
+    """No Picamera2 or ONNX models in test env — stub JPEG capture and 128-D embedding."""
+    tiny = b"\xff\xd8\xff\xdb" + bytes(range(16)) + b"\xff\xd9"
+    monkeypatch.setattr(imaging, "capture_frame_jpeg", lambda: tiny)
+    monkeypatch.setattr(imaging, "embed_face_bytes", lambda _b: [0.0] * 128)
 
 
 @pytest.fixture

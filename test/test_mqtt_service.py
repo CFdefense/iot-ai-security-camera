@@ -1,7 +1,9 @@
 import json
 import threading
 import time
+from types import SimpleNamespace
 
+import paho.mqtt.client as mqtt
 import pytest
 
 from src.core import config
@@ -49,6 +51,8 @@ class FakeMqttClient:
     def publish(self, topic, payload=None, qos=0, retain=False):
         """Capture the publish call so tests can assert on topic/payload/qos/retain."""
         self.published.append({"topic": topic, "payload": payload, "qos": qos, "retain": retain})
+        # Real paho returns MQTTMessageInfo with .rc; _publish only writes JSONL on success.
+        return SimpleNamespace(rc=mqtt.MQTT_ERR_SUCCESS)
 
 
 @pytest.fixture

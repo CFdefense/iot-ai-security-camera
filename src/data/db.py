@@ -122,7 +122,7 @@ def add_user(
     Args:
         conn: Open SQLite connection from :func:`connect`.
         name: Human-readable user label (e.g. ``"christian"``).
-        embedding: Iterable of exactly 128 floats (face_recognition encoding).
+        embedding: Iterable of exactly 128 floats (OpenCV SFace feature vector).
         registration_image: Optional JPEG bytes stored in the DB (not on disk).
 
     Raises:

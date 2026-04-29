@@ -1,4 +1,4 @@
-"""Camera capture (Picamera2) and face embeddings (OpenCV + ``face_recognition``)."""
+"""Camera capture (Picamera2) and face embeddings (OpenCV YuNet + SFace)."""
 
 from __future__ import annotations
 
@@ -8,8 +8,9 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 import cv2
-import face_recognition
 import numpy as np
+
+from .face_embed import embed_face_bgr_uint8
 
 log = logging.getLogger("picam.imaging")
 
@@ -22,7 +23,7 @@ def capture_frame_jpeg() -> bytes:
 def _capture_jpeg_via_picamera2() -> bytes:
     """Capture one still JPEG: preview config, short warmup, ``capture_file``."""
     try:
-        from picamera2 import Picamera2
+        from picamera2 import Picamera2  # type: ignore[import-not-found]
     except ImportError as e:
         raise RuntimeError(
             "Picamera2 is required for JPEG capture. On Raspberry Pi OS install e.g. "
@@ -63,20 +64,12 @@ def capture_registration_jpeg() -> bytes:
 
 
 def embed_face_bytes(raw: bytes) -> list[float]:
-    """128‑d embedding for JPEG bytes via ``face_recognition``."""
+    """128-D face embedding from JPEG bytes (OpenCV SFace; ARM-friendly)."""
     arr = np.frombuffer(raw, dtype=np.uint8)
     image_bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if image_bgr is None:
         raise ValueError("could not decode image for embedding")
-    image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
-
-    boxes = face_recognition.face_locations(image_rgb, model="hog")
-    if not boxes:
-        raise ValueError("no face detected")
-    vectors = face_recognition.face_encodings(image_rgb, known_face_locations=boxes)
-    if not vectors:
-        raise ValueError("no face embedding produced")
-    return vectors[0].astype(float).tolist()
+    return embed_face_bgr_uint8(image_bgr)
 
 
 def embed_face(image_path: Path) -> list[float]:
