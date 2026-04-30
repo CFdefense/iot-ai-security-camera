@@ -14,8 +14,9 @@ def capture_embed_and_save(name: str) -> tuple[int, bytes]:
     """
     jpeg = imaging.capture_registration_jpeg()
     embedding = imaging.embed_face_bytes(jpeg)
+    stored_jpeg = imaging.normalize_stored_jpeg(jpeg)
 
     with db.connect() as conn:
-        user_id = db.add_user(conn, name, embedding, registration_image=jpeg)
+        user_id = db.add_user(conn, name, embedding, registration_image=stored_jpeg)
 
-    return user_id, jpeg
+    return user_id, stored_jpeg

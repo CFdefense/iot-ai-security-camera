@@ -206,6 +206,27 @@ def init_app(app: Flask) -> None:
         """Recent MQTT events snapshot used to prefill bell notifications."""
         return jsonify({"events": _load_recent_notifications(limit=40)})
 
+    @app.get("/dashboard/fragments.json")
+    @_login_required
+    def dashboard_fragments_json():
+        """HTML fragments + counts for live dashboard aside panels (users + detection alerts)."""
+        with db.connect() as conn:
+            users = db.list_users(conn)
+            detection_alerts = db.list_recent_detection_alerts(conn, limit=40)
+        return jsonify(
+            {
+                "users_html": render_template(
+                    "partials/dashboard_users_inner.html", users=users
+                ),
+                "alerts_html": render_template(
+                    "partials/dashboard_alerts_inner.html",
+                    detection_alerts=detection_alerts,
+                ),
+                "users_count": len(users),
+                "alerts_count": len(detection_alerts),
+            }
+        )
+
     @app.get("/dashboard")
     @_login_required
     def dashboard():

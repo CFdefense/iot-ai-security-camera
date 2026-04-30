@@ -126,6 +126,8 @@ def test_publish_status_is_retained_heartbeat(svc):
     assert payload["event_type"] == "heartbeat"
     assert payload["detection_enabled"] is True
     assert isinstance(payload["uptime_sec"], int)
+    assert "component" in payload
+    assert payload["component"]["mqtt"]["state"] == "up"
 
 
 def test_published_messages_are_logged_to_jsonl(svc):

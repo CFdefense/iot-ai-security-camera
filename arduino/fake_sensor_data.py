@@ -13,8 +13,11 @@ Modes:
 
 Only ``obstacle_detected`` events are emitted (matches what the serial bridge treats as a trigger).
 
+When stdin is a terminal, events are sent **one per Enter** (default ``--count`` is 3). With a non-interactive stdin (pipes), the script falls back to timed spacing using ``--delay`` / ``--jitter``.
+
 Usage examples:
 
+  uv run fake-sensor
   python arduino/fake_sensor_data.py
   python arduino/fake_sensor_data.py --output serial --port /dev/tty.NNN
   python arduino/fake_sensor_data.py --output stdout | your_consumer
@@ -105,8 +108,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Fake Arduino serial NDJSON (obstacle_detected) for local development",
     )
-    parser.add_argument("--count", type=int, default=8, help="number of events to emit")
-    parser.add_argument("--delay", type=float, default=0.7, help="base delay between events (seconds)")
+    parser.add_argument(
+        "--count",
+        type=int,
+        default=3,
+        help="number of events to emit (one per Enter when interactive; default 3)",
+    )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=0.7,
+        help="base delay between events when stdin is not a TTY (seconds)",
+    )
     parser.add_argument(
         "--jitter",
         type=float,
@@ -169,7 +182,8 @@ def main() -> int:
                 "Fake Arduino on PTY slave (same as plugging in serial — point pyserial here):\n"
                 f"  export SERIAL_PORT={slave_path}\n"
                 f"  export SERIAL_BAUD={args.baud}\n"
-                "Start the camera/serial reader on that port (this script waits until it is open).\n",
+                "Start the camera/serial reader on that port (first line waits until the slave is open).\n"
+                f"Then press Enter up to {args.count} time(s) here to send one fake obstacle JSON each.\n",
                 file=sys.stderr,
                 end="",
             )
@@ -182,6 +196,13 @@ def main() -> int:
             import serial
 
             ser = serial.Serial(args.port, baudrate=args.baud, timeout=0.2)
+            if sys.stdin.isatty():
+                print(
+                    f"Using serial {args.port} @ {args.baud}. "
+                    f"Press Enter up to {args.count} time(s) to send one line each.\n",
+                    file=sys.stderr,
+                    end="",
+                )
 
             def out_write(line: str) -> None:
                 assert ser is not None
@@ -193,7 +214,25 @@ def main() -> int:
             def out_write(line: str) -> None:
                 write_text_stream(sys.stdout, line)
 
+            if sys.stdin.isatty():
+                print(
+                    f"Press Enter up to {args.count} time(s) to print one line to stdout each.\n",
+                    file=sys.stderr,
+                    end="",
+                )
+
+        interactive = sys.stdin.isatty()
         for i in range(1, args.count + 1):
+            if interactive:
+                try:
+                    input(
+                        f"Press Enter to send obstacle {i}/{args.count} … ",
+                    )
+                except EOFError:
+                    break
+            else:
+                sleep_for = args.delay + random.uniform(0, args.jitter)
+                time.sleep(sleep_for)
             ts_ms = int((time.monotonic_ns() - start_ns) / 1_000_000)
             line = build_obstacle_line(
                 event_id=i,
@@ -202,8 +241,6 @@ def main() -> int:
                 ts_ms=ts_ms,
             )
             out_write(line)
-            sleep_for = args.delay + random.uniform(0, args.jitter)
-            time.sleep(sleep_for)
     finally:
         if ser is not None:
             try:

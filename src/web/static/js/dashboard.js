@@ -27,6 +27,14 @@
     return parts[parts.length - 1] || t;
   }
 
+  /** Bell + toast styling: granted green, unknown yellow, denied/red low_quality red */
+  function eventToneFromKind(kind) {
+    if (kind === "access_granted") return "granted";
+    if (kind === "unknown_face_detected") return "unknown";
+    if (kind === "low_quality_capture" || kind === "access_denied") return "denied";
+    return "";
+  }
+
   function summarize(entry) {
     const p = entry.payload || {};
     const kind = typeof p.event_type === "string" ? p.event_type : "mqtt";
@@ -65,7 +73,8 @@
       var li = document.createElement("li");
 
       var dEv = document.createElement("div");
-      dEv.className = "ev";
+      var tone = eventToneFromKind(kind);
+      dEv.className = "ev" + (tone ? " ev--" + tone : "");
       dEv.textContent = kind.replace(/_/g, " ") + (detail ? " — " + detail : "");
 
       li.appendChild(dEv);
@@ -145,9 +154,9 @@
   }
 
   function toast(kind, subtitle) {
-    var isAlert = /alert|unknown/i.test(kind + " " + (subtitle || ""));
+    var tone = eventToneFromKind(typeof kind === "string" ? kind : "");
     var div = document.createElement("div");
-    div.className = "toast" + (isAlert ? " alt" : "");
+    div.className = "toast" + (tone ? " toast--" + tone : "");
 
     var em = document.createElement("em");
     em.textContent = prettyEvent(kind);
@@ -155,6 +164,7 @@
 
     if (subtitle) {
       var sd = document.createElement("div");
+      sd.className = "toast-sub" + (tone ? " toast-sub--" + tone : "");
       sd.style.marginTop = ".35rem";
       sd.textContent = subtitle;
       div.appendChild(sd);
@@ -191,8 +201,6 @@
     var registerForm = document.getElementById("register-user-form");
     var detectionForm = document.getElementById("detection-toggle-form");
     var detectionStateEl = document.getElementById("detection-service-state");
-    var usersCountEl = document.getElementById("registered-users-count");
-
     function setBusy(form, busy) {
       var btn = form ? form.querySelector('button[type="submit"]') : null;
       if (!btn) return;
@@ -233,6 +241,7 @@
     submitFormAsync(registerForm, function () {
       var nameInput = registerForm ? registerForm.querySelector('input[name="name"]') : null;
       if (nameInput) nameInput.value = "";
+      document.dispatchEvent(new CustomEvent("dash:refresh-panels"));
     });
 
     submitFormAsync(detectionForm, function () {
@@ -261,42 +270,6 @@
           detectionStateEl.classList.add("active");
         }
       }
-    });
-
-    document.querySelectorAll(".unregister-user-form").forEach(function (form) {
-      form.addEventListener("submit", function (e) {
-        e.preventDefault();
-        if (!window.confirm("Unregister this user?")) return;
-        setBusy(form, true);
-        fetch(form.action, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {
-            "X-Requested-With": "XMLHttpRequest",
-            Accept: "application/json,text/html",
-          },
-        })
-          .then(function (r) {
-            if (!r.ok) throw new Error("request_failed");
-            return r.json();
-          })
-          .then(function () {
-            var card = form.closest(".user-card");
-            var userNameEl = card ? card.querySelector(".alert-main") : null;
-            var userName = userNameEl && userNameEl.textContent ? userNameEl.textContent.trim() : "User";
-            if (card) card.remove();
-            if (usersCountEl) {
-              var current = Number(usersCountEl.textContent || "0");
-              if (Number.isFinite(current)) usersCountEl.textContent = String(Math.max(0, current - 1));
-            }
-          })
-          .catch(function () {
-            toast("error", "Unable to unregister user.");
-          })
-          .finally(function () {
-            setBusy(form, false);
-          });
-      });
     });
   }
 
@@ -340,6 +313,16 @@
       var evt = typeof p.event_type === "string" ? p.event_type : topicShort(env.topic);
       var sum = summarize({ topic: env.topic, payload: p });
       toast(evt, sum.detail);
+      var refreshPanels =
+        evt === "user_registered" ||
+        evt === "user_unregistered" ||
+        evt === "access_granted" ||
+        evt === "low_quality_capture" ||
+        evt === "unknown_face_detected" ||
+        evt === "detection_result";
+      if (refreshPanels) {
+        document.dispatchEvent(new CustomEvent("dash:refresh-panels"));
+      }
     } catch (_e) {
       /* ignore malformed chunks */
     }
@@ -388,7 +371,10 @@
     var payload = data && data.status_payload && typeof data.status_payload === "object" ? data.status_payload : {};
     var uptime = typeof payload.uptime_sec === "number" ? String(payload.uptime_sec) + "s" : "n/a";
     var sensorId = typeof payload.sensor_id === "string" && payload.sensor_id ? payload.sensor_id : "n/a";
-    var components = payload && typeof payload.components === "object" ? payload.components : {};
+    var components =
+      (payload && typeof payload.component === "object" && payload.component) ||
+      (payload && typeof payload.components === "object" && payload.components) ||
+      {};
     if (statusTsLine) {
       statusTsLine.textContent = ts || "—";
     }
@@ -424,8 +410,13 @@
       }
       function renderComponent(label, key) {
         var state = componentState(key);
-        if (state === "up") addRow(label, "UP", "ok");
-        else addRow(label, "DOWN", "down");
+        if (state === "up") {
+          addRow(label, "UP", "ok");
+        } else if (state === "unknown") {
+          addRow(label, "N/A", "unknown");
+        } else {
+          addRow(label, "DOWN", "down");
+        }
       }
 
       renderComponent("API", "api");
@@ -472,4 +463,82 @@
 
   refreshStatus();
   setInterval(refreshStatus, 15000);
+})();
+
+(function () {
+  var cfgEl = document.getElementById("dashboard-ui-config");
+  if (!cfgEl) return;
+  var cfg = JSON.parse(cfgEl.textContent.trim());
+  var url = cfg.fragments_url;
+  var usersBody = document.getElementById("dashboard-users-body");
+  var alertsBody = document.getElementById("dashboard-alerts-body");
+  var usersCountEl = document.getElementById("registered-users-count");
+  var alertsCountEl = document.getElementById("detection-events-count");
+  if (!url || !usersBody || !alertsBody) return;
+
+  var refreshTimer = null;
+  function scheduleDashboardPanelsRefresh() {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(function () {
+      refreshTimer = null;
+      fetch(url, { credentials: "same-origin" })
+        .then(function (r) {
+          return r.ok ? r.json() : Promise.reject(new Error(String(r.status)));
+        })
+        .then(function (data) {
+          if (typeof data.users_html === "string") usersBody.innerHTML = data.users_html;
+          if (typeof data.alerts_html === "string") alertsBody.innerHTML = data.alerts_html;
+          if (usersCountEl && data.users_count != null) usersCountEl.textContent = String(data.users_count);
+          if (alertsCountEl && data.alerts_count != null) alertsCountEl.textContent = String(data.alerts_count);
+        })
+        .catch(function () {});
+    }, 150);
+  }
+
+  document.addEventListener("dash:refresh-panels", scheduleDashboardPanelsRefresh);
+
+  document.body.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (!form || !form.classList || !form.classList.contains("unregister-user-form")) return;
+    e.preventDefault();
+    if (!window.confirm("Unregister this user?")) return;
+    var btn = form.querySelector('button[type="submit"]');
+    if (btn) {
+      btn.disabled = true;
+      btn.style.opacity = "0.75";
+    }
+    fetch(form.action, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "application/json,text/html",
+      },
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error("request_failed");
+        return r.json();
+      })
+      .then(function () {
+        scheduleDashboardPanelsRefresh();
+      })
+      .catch(function () {
+        var ts = document.getElementById("toast-stack");
+        if (ts) {
+          var div = document.createElement("div");
+          div.className = "toast";
+          div.textContent = "Unable to unregister user.";
+          ts.appendChild(div);
+          setTimeout(function () {
+            div.remove();
+          }, 4000);
+        }
+      })
+      .finally(function () {
+        if (btn) {
+          btn.disabled = false;
+          btn.style.opacity = "";
+        }
+      });
+  });
 })();

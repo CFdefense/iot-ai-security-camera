@@ -52,9 +52,16 @@ cp .env.example .env   # then edit API_KEY, MQTT_HOST, etc.
 set -a; source .env; set +a
 ```
 
-**Raspberry Pi:** `sudo apt install python3-picamera2 python3-libcamera` (Picamera2 is not on PyPI here). Use a venv with `--system-site-packages` if `import picamera2` fails under `uv run`.
+**Raspberry Pi:** Picamera2 comes from apt, not PyPI. After installing it (`sudo apt install python3-picamera2 python3-libcamera`), create the virtualenv so it can use those system packages, then sync:
 
-**Face models:** YuNet + SFace ONNX files download on first recognition/register call (needs network once), or place them under `src/camera/picam/models/` (see that folder’s README). Optional: set `FACE_MODEL_DIR` to a directory containing both `.onnx` files.
+```bash
+uv venv --system-site-packages
+uv sync
+```
+
+Use this order when you first set up on the Pi (the default isolated venv cannot import Picamera2 from apt by itself).
+
+**Face models:** YuNet + SFace ONNX files download at **`security-system` startup** if missing (needs network once), or place them under `src/camera/picam/models/` (see that folder’s README). Optional: set `FACE_MODEL_DIR` to a directory containing both `.onnx` files.
 
 ## Run
 
@@ -169,16 +176,16 @@ curl http://127.0.0.1:5050/healthz
 
 ```json
 {
-  "topic": "home/security/status",
-  "timestamp": "2026-04-14T18:33:05Z",
   "event_type": "heartbeat",
-  "uptime_sec": 3660,
-  "detection_enabled": true,
-  "connected": true,
-  "components": {
+  "component": {
     "mqtt": { "state": "up" },
     "api": { "state": "up" }
   },
+  "uptime_sec": 3660,
+  "detection_enabled": true,
+  "connected": true,
+  "topic": "home/security/status",
+  "timestamp": "2026-04-14T18:33:05Z",
   "sensor_id": "front_door_cam"
 }
 ```
@@ -189,7 +196,7 @@ curl http://127.0.0.1:5050/healthz
   it to `0.0.0.0` without also putting the service behind a firewall.
 - Every non-health route requires the `X-API-Key` header. Requests missing
   or providing a wrong key get a `401`.
-- Camera: Picamera2 on Pi; face embeddings use OpenCV YuNet + SFace ONNX (auto-downloaded to `src/camera/picam/models/`). Re-register users after any embedding-backend change. Tune `MATCH_THRESHOLD` accordingly.
+- Camera: Picamera2 on Pi; face embeddings use OpenCV YuNet + SFace ONNX (downloaded at service start to `src/camera/picam/models/` if missing). Re-register users after any embedding-backend change. Tune `MATCH_THRESHOLD` accordingly.
 
 ## Status
 

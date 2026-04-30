@@ -18,6 +18,7 @@ def handle_trigger(mqtt_service: MqttPublisher) -> dict:
     mqtt_service.publish_event("proximity_detected")
 
     raw_jpeg = imaging.capture_frame_jpeg()
+    stored_jpeg = imaging.normalize_stored_jpeg(raw_jpeg)
     cap_ref = f"inline:{utc_capture_timestamp_slug()}"
     try:
         embedding = imaging.embed_face_bytes(raw_jpeg)
@@ -28,7 +29,7 @@ def handle_trigger(mqtt_service: MqttPublisher) -> dict:
                 event_type="low_quality_capture",
                 outcome="low_quality",
                 image_ref=cap_ref,
-                capture_image=raw_jpeg,
+                capture_image=stored_jpeg,
                 reason=str(e),
             )
         mqtt_service.publish_event(
@@ -46,7 +47,7 @@ def handle_trigger(mqtt_service: MqttPublisher) -> dict:
                 outcome="granted",
                 confidence=sim,
                 image_ref=cap_ref,
-                capture_image=raw_jpeg,
+                capture_image=stored_jpeg,
                 matched_user_name=name,
             )
         else:
@@ -56,7 +57,7 @@ def handle_trigger(mqtt_service: MqttPublisher) -> dict:
                 outcome="unknown",
                 confidence=sim,
                 image_ref=cap_ref,
-                capture_image=raw_jpeg,
+                capture_image=stored_jpeg,
             )
 
     if name is not None and sim >= config.MATCH_THRESHOLD:

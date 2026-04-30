@@ -1,0 +1,46 @@
+{% if detection_alerts|length == 0 %}
+<p class="empty" style="margin-top: 0.7rem">No detection alerts yet.</p>
+{% else %}
+<div class="alerts-list">
+  {% for a in detection_alerts %}
+  {% if a.outcome == "granted" or a.event_type == "access_granted" %}
+  {% set alert_tone = "granted" %}
+  {% elif a.outcome == "unknown" or a.event_type == "unknown_face_detected" %}
+  {% set alert_tone = "unknown" %}
+  {% elif a.outcome == "low_quality" or a.event_type == "low_quality_capture" %}
+  {% set alert_tone = "denied" %}
+  {% else %}
+  {% set alert_tone = "other" %}
+  {% endif %}
+  <article class="alert-card alert-card--{{ alert_tone }}">
+    {% if a.has_capture_image %}
+    <img
+      src="{{ url_for('dashboard_alert_photo', alert_id=a.id) }}"
+      alt="Detection alert capture"
+    />
+    {% endif %}
+    <div class="alert-meta">
+      <div class="alert-type">{{ a.event_type | replace("_", " ") }}</div>
+      <div class="alert-main">
+        {% if a.matched_user_name %}
+        {{ a.matched_user_name }}
+        {% elif a.outcome == "unknown" %}
+        Unknown person detected
+        {% elif a.outcome == "low_quality" %}
+        Low quality capture
+        {% else %}
+        {{ a.outcome }}
+        {% endif %}
+        {% if a.confidence is not none %}
+        · {{ "%.2f"|format(a.confidence) }}
+        {% endif %}
+      </div>
+      <div class="alert-sub">
+        {{ a.created_ts | registered_date }}
+        {% if a.reason %} · {{ a.reason }}{% endif %}
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}

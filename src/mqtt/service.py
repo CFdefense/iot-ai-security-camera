@@ -27,6 +27,15 @@ log = logging.getLogger("mqtt.service")
 _EVENTS_LOG = config.ARTIFACTS_DIR / "mqtt_published.jsonl"
 _STATUS_COMPONENT_KEYS = ("mqtt", "camera", "api", "sensor")
 
+# JSON field on ``home/security/status`` for per-service rows (singular key).
+STATUS_PAYLOAD_COMPONENT_KEY = "component"
+
+
+def _component_rows(payload: dict[str, Any]) -> dict[str, Any]:
+    """Extract component map; accept legacy ``components`` from older retained messages."""
+    raw = payload.get(STATUS_PAYLOAD_COMPONENT_KEY) or payload.get("components")
+    return dict(raw) if isinstance(raw, dict) else {}
+
 
 class MqttPublisher(Protocol):
     """Structural interface satisfied by :class:`MqttService` and test fakes.
@@ -58,6 +67,10 @@ class MqttPublisher(Protocol):
 
     def set_detection(self, enabled: bool) -> None:
         """Enable or disable the detection loop and announce the change."""
+        ...
+
+    def publish_component_status(self, component: str, *, state: str) -> None:
+        """Publish a single component row on the status topic (``MqttService`` only)."""
         ...
 
 
@@ -240,15 +253,12 @@ class MqttService:
             merged = dict(prev)
             merged.update(data)
 
-            prev_components = prev.get("components")
-            next_components = data.get("components")
-            components: dict[str, Any] = {}
-            if isinstance(prev_components, dict):
-                components.update(prev_components)
-            if isinstance(next_components, dict):
-                components.update(next_components)
-            if components:
-                merged["components"] = components
+            combined: dict[str, Any] = {}
+            combined.update(_component_rows(prev))
+            combined.update(_component_rows(data))
+            if combined:
+                merged[STATUS_PAYLOAD_COMPONENT_KEY] = combined
+            merged.pop("components", None)
 
             self._last_status_payload = merged
             self._last_status_received_at = time.time()
@@ -271,7 +281,7 @@ class MqttService:
             config.TOPIC_STATUS,
             {
                 "event_type": "heartbeat",
-                "components": {
+                STATUS_PAYLOAD_COMPONENT_KEY: {
                     component: {
                         "state": normalized,
                     }
@@ -300,12 +310,11 @@ class MqttService:
         payload_out["connected"] = connected
         payload_out["detection_enabled"] = detection_enabled
         payload_out["uptime_sec"] = int(time.time() - started_ts)
-        components = payload_out.get("components")
         merged_components: dict[str, Any] = {}
-        if isinstance(components, dict):
-            merged_components.update(components)
+        merged_components.update(_component_rows(payload_out))
         merged_components["mqtt"] = {"state": self._status_state(connected)}
-        payload_out["components"] = merged_components
+        payload_out[STATUS_PAYLOAD_COMPONENT_KEY] = merged_components
+        payload_out.pop("components", None)
         stamp = payload.get("timestamp") if isinstance(payload, dict) else None
         last_at = stamp if isinstance(stamp, str) else None
         return {
@@ -320,14 +329,14 @@ class MqttService:
             config.TOPIC_STATUS,
             {
                 "event_type": "heartbeat",
-                "uptime_sec": int(time.time() - self._started_ts),
-                "detection_enabled": self.detection_enabled,
-                "connected": self._connected,
-                "components": {
+                STATUS_PAYLOAD_COMPONENT_KEY: {
                     "mqtt": {
                         "state": self._status_state(self._connected),
                     }
                 },
+                "uptime_sec": int(time.time() - self._started_ts),
+                "detection_enabled": self.detection_enabled,
+                "connected": self._connected,
             },
             retain=True,
         )

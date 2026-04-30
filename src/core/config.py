@@ -43,6 +43,10 @@ HEARTBEAT_INTERVAL_SEC = int(os.environ.get("HEARTBEAT_INTERVAL_SEC", "60"))
 MATCH_THRESHOLD = float(os.environ.get("MATCH_THRESHOLD", "0.6"))
 SENSOR_ID = os.environ.get("SENSOR_ID", "front_door_cam")
 
+# Stored dashboard images (registration + detection alerts): same max edge and JPEG quality.
+STORED_JPEG_MAX_EDGE = int(os.environ.get("STORED_JPEG_MAX_EDGE", "640"))
+STORED_JPEG_QUALITY = int(os.environ.get("STORED_JPEG_QUALITY", "85"))
+
 # REST API configuration
 # Binds to the local network interface only (not 0.0.0.0), per the
 API_HOST = os.environ.get("API_HOST", "127.0.0.1")

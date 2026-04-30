@@ -52,7 +52,7 @@
               <div class="muted">Last updated</div>
               <div id="status-ts-line">—</div>
               <div class="muted">
-                Components · <code>{{ status_topic }}</code>
+                Component · <code>{{ status_topic }}</code>
               </div>
               <div id="status-payload-expl"></div>
               <div id="status-components" class="status-components"></div>
@@ -133,7 +133,7 @@
             </div>
             <div class="hero-card">
               <div class="hero-label">Detection events</div>
-              <div class="hero-value">{{ detection_alerts|length }}</div>
+              <div id="detection-events-count" class="hero-value">{{ detection_alerts|length }}</div>
             </div>
             <div class="hero-card">
               <div class="hero-label">Detection service</div>
@@ -180,43 +180,9 @@
             <div class="muted" style="font-size: 0.78rem">
               Current whitelist entries and registration snapshots.
             </div>
-            {% if users|length == 0 %}
-            <p class="empty" style="margin-top: 0.7rem">No registered users yet.</p>
-            {% else %}
-            <div class="users-list">
-              {% for u in users %}
-              <article class="alert-card user-card" data-user-id="{{ u.id }}">
-                {% if u.has_registration_image %}
-                <div class="user-photo-wrap">
-                  <img
-                    src="{{ url_for('user_registration_photo', user_id=u.id) }}"
-                    alt="Registration photo"
-                  />
-                  <form
-                    class="unregister-user-form"
-                    method="post"
-                    action="{{ url_for('dashboard_unregister_user', user_id=u.id) }}"
-                  >
-                    <button
-                      type="submit"
-                      class="unregister-btn"
-                      title="Unregister user"
-                      aria-label="Unregister {{ u.name }}"
-                    >
-                      ×
-                    </button>
-                  </form>
-                </div>
-                {% endif %}
-                <div class="alert-meta">
-                  <div class="alert-type">registered user</div>
-                  <div class="alert-main">{{ u.name }}</div>
-                  <div class="alert-sub">Registered {{ u.created_ts | registered_date }}</div>
-                </div>
-              </article>
-              {% endfor %}
+            <div id="dashboard-users-body">
+              {% include "partials/dashboard_users_inner.html" %}
             </div>
-            {% endif %}
           </aside>
 
           <aside class="alerts-panel" aria-label="Recent detection alerts">
@@ -224,50 +190,16 @@
             <div class="muted" style="font-size: 0.78rem">
               See the latest camera detections.
             </div>
-            {% if detection_alerts|length == 0 %}
-            <p class="empty" style="margin-top: 0.7rem">No detection alerts yet.</p>
-            {% else %}
-            <div class="alerts-list">
-              {% for a in detection_alerts %}
-              <article class="alert-card">
-                {% if a.has_capture_image %}
-                <img
-                  src="{{ url_for('dashboard_alert_photo', alert_id=a.id) }}"
-                  alt="Detection alert capture"
-                />
-                {% endif %}
-                <div class="alert-meta">
-                  <div class="alert-type">{{ a.event_type | replace("_", " ") }}</div>
-                  <div class="alert-main">
-                    {% if a.matched_user_name %}
-                    {{ a.matched_user_name }}
-                    {% elif a.outcome == "unknown" %}
-                    Unknown person detected
-                    {% elif a.outcome == "low_quality" %}
-                    Low quality capture
-                    {% else %}
-                    {{ a.outcome }}
-                    {% endif %}
-                    {% if a.confidence is not none %}
-                    · {{ "%.2f"|format(a.confidence) }}
-                    {% endif %}
-                  </div>
-                  <div class="alert-sub">
-                    {{ a.created_ts | registered_date }}
-                    {% if a.reason %} · {{ a.reason }}{% endif %}
-                  </div>
-                </div>
-              </article>
-              {% endfor %}
+            <div id="dashboard-alerts-body">
+              {% include "partials/dashboard_alerts_inner.html" %}
             </div>
-            {% endif %}
           </aside>
         </section>
       </div>
     </div>
 
     <script id="dashboard-ui-config" type="application/json">
-      {{ {"mqtt_stream_url": mqtt_stream_url, "status_json_url": status_json_url, "recent_events_url": url_for("dashboard_recent_events_json")} | tojson }}
+      {{ {"mqtt_stream_url": mqtt_stream_url, "status_json_url": status_json_url, "recent_events_url": url_for("dashboard_recent_events_json"), "fragments_url": url_for("dashboard_fragments_json")} | tojson }}
     </script>
     <script defer src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
   </body>

@@ -43,6 +43,10 @@ class FakeMqtt:
         self._enabled = bool(enabled)
         self.events.append(("detection_toggle", {"enabled": self._enabled}))
 
+    def publish_component_status(self, component: str, *, state: str):
+        """No-op; real broker publishes retained component rows for the dashboard."""
+        pass
+
     def dashboard_status_bundle(self):
         """Thin snapshot for /dashboard/status.json tests."""
         return {
