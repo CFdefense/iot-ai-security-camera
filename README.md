@@ -21,12 +21,13 @@ Smart Security Camera for Verified User Access (Computer Vision IoT system).
 ## Repo layout
 
 - `docs/` — design docs and diagrams
-- `src/api_service.py` — combined service entrypoint (REST + dashboard + MQTT threads)
-- `src/mqtt_service.py` — MQTT publish/status logic
+- `src/security_system.py` — single process (REST + dashboard + MQTT + heartbeat + serial bridge)
+- `src/mqtt/` — MQTT client package used by `security_system`
 - `src/data/db.py` — SQLite users + detection alerts
 - `src/integrations/serial_bridge.py` — Arduino serial trigger bridge
 - `src/web/` — Flask dashboard (`templates/`, `static/`, `web_ui.py`)
 - `src/core/` — shared config, startup banner, status helpers
+- `src/camera/picam/` — capture + OpenCV SFace embeddings (`face_embed.py`, ONNX cache under `picam/models/`)
 - `test/` — pytest suite
 - `.env.example` — configuration template
 
@@ -45,19 +46,22 @@ management and [`ruff`](https://docs.astral.sh/ruff/) for lint/format.
 # One-time: install uv (macOS/Linux)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install project deps (incl. dev group) into .venv
 uv sync
 
-# Config
 cp .env.example .env   # then edit API_KEY, MQTT_HOST, etc.
 set -a; source .env; set +a
 ```
 
-On the Raspberry Pi, also pull in the hardware-only extras:
+**Raspberry Pi:** Picamera2 comes from apt, not PyPI. After installing it (`sudo apt install python3-picamera2 python3-libcamera`), create the virtualenv so it can use those system packages, then sync:
 
 ```bash
-uv sync --extra pi
+uv venv --system-site-packages
+uv sync
 ```
+
+Use this order when you first set up on the Pi (the default isolated venv cannot import Picamera2 from apt by itself).
+
+**Face models:** YuNet + SFace ONNX files download at **`security-system` startup** if missing (needs network once), or place them under `src/camera/picam/models/` (see that folder’s README). Optional: set `FACE_MODEL_DIR` to a directory containing both `.onnx` files.
 
 ## Run
 
@@ -94,19 +98,10 @@ For normal use, run the combined service — it serves the REST control plane
 **and** runs the MQTT publisher + 60s heartbeat in the same process:
 
 ```bash
-uv run camera-service
+uv run security-system
 ```
 
-For broker-wiring smoke tests only, you can start the MQTT side by itself
-(no HTTP, just the heartbeat + manual publishes):
-
-```bash
-uv run camera-mqtt
-```
-
-Either entry point can also be invoked as a module, e.g. `uv run python -m src.api_service`.
-Do **not** run files as scripts (`python src/mqtt_service.py`) — they use relative
-imports and need to be loaded as package members.
+Or: `uv run python -m src.security_system`. Use package imports (not `python path/to/file.py`).
 
 ### 3. Open the dashboard
 
@@ -181,16 +176,16 @@ curl http://127.0.0.1:5050/healthz
 
 ```json
 {
-  "topic": "home/security/status",
-  "timestamp": "2026-04-14T18:33:05Z",
   "event_type": "heartbeat",
+  "component": {
+    "mqtt": { "state": "up" },
+    "api": { "state": "up" }
+  },
   "uptime_sec": 3660,
   "detection_enabled": true,
   "connected": true,
-  "components": {
-    "mqtt": {"state": "up"},
-    "api": {"state": "up"}
-  },
+  "topic": "home/security/status",
+  "timestamp": "2026-04-14T18:33:05Z",
   "sensor_id": "front_door_cam"
 }
 ```
@@ -201,9 +196,7 @@ curl http://127.0.0.1:5050/healthz
   it to `0.0.0.0` without also putting the service behind a firewall.
 - Every non-health route requires the `X-API-Key` header. Requests missing
   or providing a wrong key get a `401`.
-- The `capture.embed_face` stub hashes image bytes so local runs work
-  without the `face_recognition` library; swap in the real implementation
-  on the Pi (see the docstring in `src/capture.py`).
+- Camera: Picamera2 on Pi; face embeddings use OpenCV YuNet + SFace ONNX (downloaded at service start to `src/camera/picam/models/` if missing). Re-register users after any embedding-backend change. Tune `MATCH_THRESHOLD` accordingly.
 
 ## Status
 

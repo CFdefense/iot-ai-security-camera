@@ -27,7 +27,7 @@ def test_add_user_returns_id_and_persists(conn):
 
 
 def test_add_user_rejects_wrong_dim(conn):
-    """Embeddings must be 128-d (face_recognition output); anything else is a programmer error."""
+    """Embeddings must be 128-d (SFace output); anything else is a programmer error."""
     with pytest.raises(ValueError, match="128-d"):
         db.add_user(conn, "bob", [0.1] * 10)
 

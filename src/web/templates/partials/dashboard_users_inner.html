@@ -1,0 +1,37 @@
+{% if users|length == 0 %}
+<p class="empty" style="margin-top: 0.7rem">No registered users yet.</p>
+{% else %}
+<div class="users-list">
+  {% for u in users %}
+  <article class="alert-card user-card" data-user-id="{{ u.id }}">
+    {% if u.has_registration_image %}
+    <div class="user-photo-wrap">
+      <img
+        src="{{ url_for('user_registration_photo', user_id=u.id) }}"
+        alt="Registration photo"
+      />
+      <form
+        class="unregister-user-form"
+        method="post"
+        action="{{ url_for('dashboard_unregister_user', user_id=u.id) }}"
+      >
+        <button
+          type="submit"
+          class="unregister-btn"
+          title="Unregister user"
+          aria-label="Unregister {{ u.name }}"
+        >
+          ×
+        </button>
+      </form>
+    </div>
+    {% endif %}
+    <div class="alert-meta">
+      <div class="alert-type">registered user</div>
+      <div class="alert-main">{{ u.name }}</div>
+      <div class="alert-sub">Registered {{ u.created_ts | registered_date }}</div>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}

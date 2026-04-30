@@ -43,14 +43,22 @@ HEARTBEAT_INTERVAL_SEC = int(os.environ.get("HEARTBEAT_INTERVAL_SEC", "60"))
 MATCH_THRESHOLD = float(os.environ.get("MATCH_THRESHOLD", "0.6"))
 SENSOR_ID = os.environ.get("SENSOR_ID", "front_door_cam")
 
+# Stored dashboard images (registration + detection alerts): same max edge and JPEG quality.
+STORED_JPEG_MAX_EDGE = int(os.environ.get("STORED_JPEG_MAX_EDGE", "640"))
+STORED_JPEG_QUALITY = int(os.environ.get("STORED_JPEG_QUALITY", "85"))
+
 # REST API configuration
 # Binds to the local network interface only (not 0.0.0.0), per the
 API_HOST = os.environ.get("API_HOST", "127.0.0.1")
 # Default 5050: on macOS, AirPlay Receiver often listens on TCP 5000 — browsers then
-# hit that service (403, no Flask logs) while camera-service appears "healthy".
+# hit that service (403, no Flask logs) while security-system appears "healthy".
 API_PORT = int(os.environ.get("API_PORT", "5050"))
 API_KEY = os.environ.get("API_KEY", "").strip()
 API_KEY_HEADER = "X-API-Key"
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "TASK")
+# Native libcamera C++ logging verbosity (controls lines like camera_manager.cpp / pisp.cpp).
+# Keep terse by default so TASK mode focuses on workflow milestones.
+LIBCAMERA_LOG_LEVELS = os.environ.get("LIBCAMERA_LOG_LEVELS", "*:ERROR")
 
 # Web dashboard session auth; dashboard_users reset from env once at Flask startup (create_app).
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "")

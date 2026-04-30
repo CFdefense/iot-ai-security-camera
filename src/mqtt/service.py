@@ -1,18 +1,10 @@
-"""MQTT publisher service for the Smart Security Camera.
+"""MQTT publisher implementation (used only from ``security_system``).
 
 Publishes to the three topics defined in docs/Architecture.pdf:
 
   home/security/alerts  - unknown_face_detected (drives mobile notifications)
   home/security/events  - proximity / access_granted / detection_toggle / low_quality_capture
   home/security/status  - 60s heartbeat with uptime + detection state
-
-Run directly to start a heartbeat loop so the broker always sees a live
-camera device:
-
-    python -m src.mqtt_service
-
-Other modules (the REST API, the detection loop) import ``MqttService`` and
-call ``publish_alert`` / ``publish_event`` when they have something to report.
 """
 
 from __future__ import annotations
@@ -20,7 +12,6 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
-import signal
 import threading
 import time
 from collections.abc import Callable
@@ -29,12 +20,22 @@ from typing import Any, Protocol
 
 import paho.mqtt.client as mqtt
 
-from .core import config
+from ..core import config
+from ..core.task_logging import TASK_LEVEL
 
-log = logging.getLogger("mqtt_service")
+log = logging.getLogger("mqtt.service")
 
 _EVENTS_LOG = config.ARTIFACTS_DIR / "mqtt_published.jsonl"
 _STATUS_COMPONENT_KEYS = ("mqtt", "camera", "api", "sensor")
+
+# JSON field on ``home/security/status`` for per-service rows (singular key).
+STATUS_PAYLOAD_COMPONENT_KEY = "component"
+
+
+def _component_rows(payload: dict[str, Any]) -> dict[str, Any]:
+    """Extract component map; accept legacy ``components`` from older retained messages."""
+    raw = payload.get(STATUS_PAYLOAD_COMPONENT_KEY) or payload.get("components")
+    return dict(raw) if isinstance(raw, dict) else {}
 
 
 class MqttPublisher(Protocol):
@@ -67,6 +68,10 @@ class MqttPublisher(Protocol):
 
     def set_detection(self, enabled: bool) -> None:
         """Enable or disable the detection loop and announce the change."""
+        ...
+
+    def publish_component_status(self, component: str, *, state: str) -> None:
+        """Publish a single component row on the status topic (``MqttService`` only)."""
         ...
 
 
@@ -113,7 +118,7 @@ class MqttService:
         crash startup; paho's loop will retry in the background. Publishes
         issued before the broker comes up are silently dropped by paho.
         """
-        log.info("connecting to mqtt %s:%s", self.host, self.port)
+        log.log(TASK_LEVEL, "mqtt: connecting to %s:%s", self.host, self.port)
         try:
             self._client.connect_async(self.host, self.port, keepalive=config.MQTT_KEEPALIVE)
         except Exception as e:
@@ -128,7 +133,7 @@ class MqttService:
 
     def _on_connect(self, client, userdata, flags, rc):
         self._connected = rc == 0
-        log.info("mqtt connected rc=%s", rc)
+        log.log(TASK_LEVEL, "mqtt: connected rc=%s", rc)
         if rc == 0:
             try:
                 client.subscribe(config.TOPIC_STATUS, qos=1)
@@ -204,7 +209,7 @@ class MqttService:
         _EVENTS_LOG.parent.mkdir(parents=True, exist_ok=True)
         with _EVENTS_LOG.open("a", encoding="utf-8") as f:
             f.write(body + "\n")
-        log.info("pub %s %s", topic, body)
+        log.debug("pub %s %s", topic, body)
         if topic == config.TOPIC_STATUS:
             self._merge_status_snapshot(dict(payload))
         # SSE notification stream listens on EventHub: only HOME/security/events (alerts + status elsewhere).
@@ -249,15 +254,12 @@ class MqttService:
             merged = dict(prev)
             merged.update(data)
 
-            prev_components = prev.get("components")
-            next_components = data.get("components")
-            components: dict[str, Any] = {}
-            if isinstance(prev_components, dict):
-                components.update(prev_components)
-            if isinstance(next_components, dict):
-                components.update(next_components)
-            if components:
-                merged["components"] = components
+            combined: dict[str, Any] = {}
+            combined.update(_component_rows(prev))
+            combined.update(_component_rows(data))
+            if combined:
+                merged[STATUS_PAYLOAD_COMPONENT_KEY] = combined
+            merged.pop("components", None)
 
             self._last_status_payload = merged
             self._last_status_received_at = time.time()
@@ -280,7 +282,7 @@ class MqttService:
             config.TOPIC_STATUS,
             {
                 "event_type": "heartbeat",
-                "components": {
+                STATUS_PAYLOAD_COMPONENT_KEY: {
                     component: {
                         "state": normalized,
                     }
@@ -309,12 +311,11 @@ class MqttService:
         payload_out["connected"] = connected
         payload_out["detection_enabled"] = detection_enabled
         payload_out["uptime_sec"] = int(time.time() - started_ts)
-        components = payload_out.get("components")
         merged_components: dict[str, Any] = {}
-        if isinstance(components, dict):
-            merged_components.update(components)
+        merged_components.update(_component_rows(payload_out))
         merged_components["mqtt"] = {"state": self._status_state(connected)}
-        payload_out["components"] = merged_components
+        payload_out[STATUS_PAYLOAD_COMPONENT_KEY] = merged_components
+        payload_out.pop("components", None)
         stamp = payload.get("timestamp") if isinstance(payload, dict) else None
         last_at = stamp if isinstance(stamp, str) else None
         return {
@@ -329,14 +330,14 @@ class MqttService:
             config.TOPIC_STATUS,
             {
                 "event_type": "heartbeat",
-                "uptime_sec": int(time.time() - self._started_ts),
-                "detection_enabled": self.detection_enabled,
-                "connected": self._connected,
-                "components": {
+                STATUS_PAYLOAD_COMPONENT_KEY: {
                     "mqtt": {
                         "state": self._status_state(self._connected),
                     }
                 },
+                "uptime_sec": int(time.time() - self._started_ts),
+                "detection_enabled": self.detection_enabled,
+                "connected": self._connected,
             },
             retain=True,
         )
@@ -348,9 +349,8 @@ class MqttService:
     ) -> None:
         """Publish a heartbeat to ``home/security/status`` every ``interval_sec``.
 
-        Blocks the calling thread; intended to be run either as the main
-        thread (see :func:`main`) or inside a dedicated daemon thread from
-        the REST API.
+        Blocks the calling thread; intended to be run inside a dedicated daemon
+        thread from ``security_system``.
 
         Args:
             interval_sec: Seconds between heartbeats. Defaults to
@@ -364,28 +364,3 @@ class MqttService:
             except Exception as e:  # broker may be briefly unavailable
                 log.warning("heartbeat publish failed: %s", e)
             stop_event.wait(interval_sec)
-
-
-def main() -> None:
-    """Run the MQTT service standalone: connect + heartbeat until SIGINT/SIGTERM."""
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
-    svc = MqttService()
-    svc.start()
-
-    stop_event = threading.Event()
-
-    def _handle_signal(signum, frame):
-        log.info("received signal %s, stopping", signum)
-        stop_event.set()
-
-    signal.signal(signal.SIGINT, _handle_signal)
-    signal.signal(signal.SIGTERM, _handle_signal)
-
-    try:
-        svc.run_heartbeat(stop_event=stop_event)
-    finally:
-        svc.stop()
-
-
-if __name__ == "__main__":
-    main()

@@ -324,8 +324,17 @@ form.logout {
 }
 #bell-list .ev {
   font-weight: 600;
-  color: #86efac;
+  color: #cbd5e1;
   word-break: break-word;
+}
+#bell-list .ev--granted {
+  color: #4ade80;
+}
+#bell-list .ev--unknown {
+  color: #facc15;
+}
+#bell-list .ev--denied {
+  color: #f87171;
 }
 #bell-list .topic {
   font-size: 0.68rem;
@@ -434,8 +443,8 @@ section {
   gap: 1.1rem;
 }
 .alerts-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.7rem;
   margin-top: 0.8rem;
 }
@@ -458,6 +467,21 @@ section {
   font-size: 0.8rem;
 }
 .users-list .alert-sub {
+  font-size: 0.68rem;
+}
+.alerts-list .alert-card img {
+  aspect-ratio: 1/1;
+}
+.alerts-list .alert-meta {
+  padding: 0.45rem 0.55rem 0.55rem;
+}
+.alerts-list .alert-type {
+  font-size: 0.68rem;
+}
+.alerts-list .alert-main {
+  font-size: 0.8rem;
+}
+.alerts-list .alert-sub {
   font-size: 0.68rem;
 }
 .user-photo-wrap {
@@ -536,6 +560,22 @@ section {
   font-size: 0.73rem;
   color: #8ea0b3;
 }
+.alerts-list .alert-card--granted .alert-type,
+.alerts-list .alert-card--granted .alert-main {
+  color: #4ade80;
+}
+.alerts-list .alert-card--unknown .alert-type,
+.alerts-list .alert-card--unknown .alert-main {
+  color: #facc15;
+}
+.alerts-list .alert-card--denied .alert-type,
+.alerts-list .alert-card--denied .alert-main {
+  color: #f87171;
+}
+.alerts-list .alert-card--other .alert-type,
+.alerts-list .alert-card--other .alert-main {
+  color: #e2e8f0;
+}
 @media (max-width: 980px) {
   .dashboard-layout {
     grid-template-columns: 1fr;
@@ -544,6 +584,9 @@ section {
     grid-template-columns: 1fr;
   }
   .users-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .alerts-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -556,6 +599,9 @@ section {
     justify-content: flex-end;
   }
   .users-list {
+    grid-template-columns: 1fr;
+  }
+  .alerts-list {
     grid-template-columns: 1fr;
   }
 }
@@ -708,17 +754,42 @@ article img.photo {
 .toast.closing {
   animation: toastOut 0.26s ease forwards;
 }
-.toast.alt {
-  border-color: #92400e;
-  background: #1f1608;
-  color: #fde68a;
-}
 .toast em {
   font-style: normal;
   font-weight: 700;
   font-size: 0.95rem;
-  color: #a7f3d0;
+  color: #e2e8f0;
   letter-spacing: 0.01em;
+}
+.toast--granted {
+  border-color: rgba(74, 222, 128, 0.45);
+  background: rgba(20, 83, 45, 0.22);
+}
+.toast--granted em {
+  color: #4ade80;
+}
+.toast-sub--granted {
+  color: #bbf7d0;
+}
+.toast--unknown {
+  border-color: rgba(234, 179, 8, 0.5);
+  background: rgba(66, 32, 6, 0.35);
+}
+.toast--unknown em {
+  color: #facc15;
+}
+.toast-sub--unknown {
+  color: #fde047;
+}
+.toast--denied {
+  border-color: rgba(248, 113, 113, 0.5);
+  background: rgba(127, 29, 29, 0.25);
+}
+.toast--denied em {
+  color: #f87171;
+}
+.toast-sub--denied {
+  color: #fecaca;
 }
 @keyframes toastIn {
   from {

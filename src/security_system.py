@@ -20,12 +20,13 @@ The server binds to ``config.API_HOST`` (default 127.0.0.1) and requires a
 pre-shared key on every non-health route. Requests missing or providing a
 wrong key get a 401, matching the "Security / Safety Note" in the doc.
 
-Run:  uv run camera-service   (or: python -m src.api_service)
+Run: ``uv run security-system`` (or: ``python -m src.security_system``).
 """
 
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from functools import wraps
 from pathlib import Path
@@ -36,12 +37,28 @@ from .camera.services.register_user import capture_embed_and_save
 from .core import config
 from .core.event_hub import EventHub
 from .core.startup_banner import log_banner
+from .core.status_publish import publish_initial_edge_components, run_camera_status_refresh_loop
+from .core.task_logging import TASK_LEVEL, setup_logging
 from .data import db
 from .integrations.serial_bridge import run_serial_bridge
-from .mqtt_service import MqttPublisher, MqttService
+from .mqtt import MqttPublisher, MqttService
 from .web import web_ui
 
-log = logging.getLogger("api_service")
+log = logging.getLogger("security_system")
+
+
+def _prefetch_face_models() -> None:
+    """Download YuNet + SFace ONNX to ``FACE_MODEL_DIR`` (or ``picam/models/``) if missing."""
+    try:
+        from .camera.picam.face_embed import ensure_face_models
+
+        yunet, sface = ensure_face_models()
+        log.info("face ONNX models ready: %s, %s", yunet.name, sface.name)
+    except Exception as e:
+        log.warning(
+            "face model prefetch failed (offline or disk issue); will retry on first face use: %s",
+            e,
+        )
 
 
 def _require_api_key(fn):
@@ -151,7 +168,12 @@ def create_app(mqtt_service: MqttPublisher | None = None, *, event_hub: EventHub
 
 def main() -> None:
     """Run the REST API plus an in-process MQTT client + heartbeat thread."""
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    # Suppress verbose native libcamera INFO chatter in normal TASK monitoring.
+    os.environ.setdefault("LIBCAMERA_LOG_LEVELS", config.LIBCAMERA_LOG_LEVELS)
+    setup_logging()
+    log.log(TASK_LEVEL, "startup: initializing security-system services")
+
+    _prefetch_face_models()
 
     if not config.API_KEY:
         log.warning(
@@ -162,6 +184,7 @@ def main() -> None:
     hub = EventHub()
     mqtt_svc = MqttService(on_publish=hub.emit)
     mqtt_svc.start()
+    log.log(TASK_LEVEL, "startup: mqtt loop started (%s:%s)", mqtt_svc.host, mqtt_svc.port)
 
     stop_event = threading.Event()
     hb_thread = threading.Thread(
@@ -182,6 +205,15 @@ def main() -> None:
     api_status_thread = threading.Thread(target=_api_status_heartbeat, daemon=True)
     api_status_thread.start()
 
+    camera_status_thread = threading.Thread(
+        target=run_camera_status_refresh_loop,
+        kwargs={"mqtt_service": mqtt_svc, "stop_event": stop_event, "interval_sec": 45.0},
+        daemon=True,
+    )
+    camera_status_thread.start()
+
+    publish_initial_edge_components(mqtt_svc)
+
     if config.SERIAL_PORT:
         serial_thread = threading.Thread(
             target=run_serial_bridge,
@@ -195,11 +227,13 @@ def main() -> None:
             daemon=True,
         )
         serial_thread.start()
+        log.log(TASK_LEVEL, "startup: serial bridge enabled on %s", config.SERIAL_PORT)
     else:
-        log.info("SERIAL_PORT is blank — Arduino serial bridge skipped (dashboard/MQTT still active).")
+        log.log(TASK_LEVEL, "startup: serial bridge skipped (SERIAL_PORT empty)")
 
     app = create_app(mqtt_svc, event_hub=hub)
     log_banner(mqtt_svc)
+    log.log(TASK_LEVEL, "startup: dashboard available at http://%s:%s", config.API_HOST, config.API_PORT)
     try:
         app.run(host=config.API_HOST, port=config.API_PORT, debug=False, use_reloader=False)
     finally:

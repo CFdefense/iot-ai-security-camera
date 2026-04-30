@@ -32,7 +32,7 @@ class RecordingMqtt:
     Serial tests monkeypatch :func:`src.services.proximity.handle_trigger`, so
     :meth:`publish_alert` is not exercised; we still provide it (and
     :attr:`detection_enabled` / :meth:`set_detection`) to match
-    :class:`src.mqtt_service.MqttPublisher` if a test ever calls the real
+    :class:`src.mqtt.MqttPublisher` if a test ever calls the real
     :func:`src.services.proximity.handle_trigger` without a stub.
     """
 
@@ -54,6 +54,10 @@ class RecordingMqtt:
 
     def set_detection(self, enabled: bool):
         """Protocol hook; the serial bridge does not toggle detection."""
+        pass
+
+    def publish_component_status(self, component: str, *, state: str):
+        """Protocol hook for ``home/security/status`` component rows."""
         pass
 
 
@@ -152,14 +156,16 @@ def test_run_serial_bridge_bad_json_publishes_error(monkeypatch):
     assert any(evt[0] == "serial_json_error" for evt in mqtt.events)
 
 
-def test_run_serial_bridge_open_failure_returns_without_raising(monkeypatch):
-    """Missing device: log warning path; no MQTT events from the reader loop."""
+def test_run_serial_bridge_open_failure_retries_until_stopped(monkeypatch):
+    """Open failures retry until ``stop_event``; no reader MQTT events until a port opens."""
 
     def fail_open(*args, **kwargs):
         raise serial_bridge.serial.SerialException("could not open port")
 
     monkeypatch.setattr(serial_bridge.serial, "Serial", fail_open)
     stop = threading.Event()
+    # Avoid sleeping through backoff in this unit test: first failed open then exit.
+    monkeypatch.setattr(stop, "wait", lambda timeout=None: True)
     mqtt = RecordingMqtt()
     serial_bridge.run_serial_bridge(
         mqtt_service=mqtt,
@@ -170,3 +176,55 @@ def test_run_serial_bridge_open_failure_returns_without_raising(monkeypatch):
     )
 
     assert mqtt.events == []
+
+
+@pytest.mark.usefixtures("isolated_paths")
+def test_serial_read_disconnect_marks_sensor_down_once_no_event_spam(monkeypatch):
+    """Disconnect during ``readline`` logs once, publishes sensor down once, no ``serial_bridge_error`` flood."""
+
+    class DisconnectSerial:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def readline(self):
+            raise serial_bridge.serial.SerialException(
+                "device reports readiness to read but returned no data"
+            )
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(serial_bridge.serial, "Serial", lambda *a, **k: DisconnectSerial())
+
+    stop = threading.Event()
+    _n = [0]
+    _orig_wait = stop.wait
+
+    def wait_patched(timeout=None):
+        _n[0] += 1
+        if _n[0] == 1:
+            stop.set()
+            return True
+        return _orig_wait(timeout)
+
+    monkeypatch.setattr(stop, "wait", wait_patched)
+
+    mqtt = RecordingMqtt()
+    status = []
+
+    def capture_status(mq, comp, st):
+        status.append((comp, st))
+
+    monkeypatch.setattr(serial_bridge, "publish_component_safe", capture_status)
+
+    serial_bridge.run_serial_bridge(
+        mqtt_service=mqtt,
+        stop_event=stop,
+        serial_port="/dev/fake",
+        baudrate=115200,
+        timeout=0.1,
+    )
+
+    assert not any(e[0] == "serial_bridge_error" for e in mqtt.events)
+    assert status.count(("sensor", "up")) == 1
+    assert status.count(("sensor", "down")) == 1

@@ -1,12 +1,13 @@
 import json
 import threading
 import time
+from types import SimpleNamespace
 
+import paho.mqtt.client as mqtt
 import pytest
 
 from src.core import config
-
-from src import mqtt_service
+from src.mqtt import service as mqtt_svc
 
 
 class FakeMqttClient:
@@ -50,15 +51,17 @@ class FakeMqttClient:
     def publish(self, topic, payload=None, qos=0, retain=False):
         """Capture the publish call so tests can assert on topic/payload/qos/retain."""
         self.published.append({"topic": topic, "payload": payload, "qos": qos, "retain": retain})
+        # Real paho returns MQTTMessageInfo with .rc; _publish only writes JSONL on success.
+        return SimpleNamespace(rc=mqtt.MQTT_ERR_SUCCESS)
 
 
 @pytest.fixture
 def svc(monkeypatch, tmp_path):
     """MqttService wired to FakeMqttClient and a tmp published-events log."""
     FakeMqttClient.instances.clear()
-    monkeypatch.setattr(mqtt_service.mqtt, "Client", FakeMqttClient)
-    monkeypatch.setattr(mqtt_service, "_EVENTS_LOG", tmp_path / "pub.jsonl")
-    s = mqtt_service.MqttService(host="test", port=1234, client_id="t")
+    monkeypatch.setattr(mqtt_svc.mqtt, "Client", FakeMqttClient)
+    monkeypatch.setattr(mqtt_svc, "_EVENTS_LOG", tmp_path / "pub.jsonl")
+    s = mqtt_svc.MqttService(host="test", port=1234, client_id="t")
     s.start()
     yield s
     s.stop()
@@ -123,12 +126,14 @@ def test_publish_status_is_retained_heartbeat(svc):
     assert payload["event_type"] == "heartbeat"
     assert payload["detection_enabled"] is True
     assert isinstance(payload["uptime_sec"], int)
+    assert "component" in payload
+    assert payload["component"]["mqtt"]["state"] == "up"
 
 
 def test_published_messages_are_logged_to_jsonl(svc):
     """Every publish must also be persisted to _EVENTS_LOG (artifacts/mqtt_published.jsonl) for audit."""
     svc.publish_event("x", {"k": 1})
-    log = mqtt_service._EVENTS_LOG
+    log = mqtt_svc._EVENTS_LOG
     lines = [ln for ln in log.read_text().splitlines() if ln.strip()]
     assert len(lines) == 1
     decoded = json.loads(lines[0])

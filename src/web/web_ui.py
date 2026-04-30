@@ -206,6 +206,27 @@ def init_app(app: Flask) -> None:
         """Recent MQTT events snapshot used to prefill bell notifications."""
         return jsonify({"events": _load_recent_notifications(limit=40)})
 
+    @app.get("/dashboard/fragments.json")
+    @_login_required
+    def dashboard_fragments_json():
+        """HTML fragments + counts for live dashboard aside panels (users + detection alerts)."""
+        with db.connect() as conn:
+            users = db.list_users(conn)
+            detection_alerts = db.list_recent_detection_alerts(conn, limit=40)
+        return jsonify(
+            {
+                "users_html": render_template(
+                    "partials/dashboard_users_inner.html", users=users
+                ),
+                "alerts_html": render_template(
+                    "partials/dashboard_alerts_inner.html",
+                    detection_alerts=detection_alerts,
+                ),
+                "users_count": len(users),
+                "alerts_count": len(detection_alerts),
+            }
+        )
+
     @app.get("/dashboard")
     @_login_required
     def dashboard():
@@ -219,14 +240,21 @@ def init_app(app: Flask) -> None:
     def dashboard_register():
         name = (request.form.get("name") or "").strip()
         if not name:
+            if _wants_json():
+                return jsonify({"error": "Name is required"}), 400
             return _render_dashboard("Name is required", status_code=400)
 
         try:
             user_id, _jpeg = capture_embed_and_save(name)
         except ValueError as e:
+            log.warning("dashboard register rejected: %s", e)
+            if _wants_json():
+                return jsonify({"error": str(e)}), 422
             return _render_dashboard(str(e), status_code=422)
         except Exception as e:
             log.exception("dashboard register capture failed")
+            if _wants_json():
+                return jsonify({"error": f"capture failed: {e}"}), 500
             return _render_dashboard(f"capture failed: {e}", status_code=500)
 
         mq = app.config.get("mqtt")
@@ -236,6 +264,8 @@ def init_app(app: Flask) -> None:
                 {"user_id": user_id, "name": name},
             )
 
+        if _wants_json():
+            return jsonify({"ok": True, "user_id": user_id})
         return redirect(url_for("dashboard"))
 
     @app.post("/dashboard/detection/toggle")
