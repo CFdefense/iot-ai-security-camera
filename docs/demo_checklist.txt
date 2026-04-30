@@ -1,0 +1,16 @@
+Final Project Demo Checklist
+
+Team Name: Psychic Securities
+Team Members: Christian Farrell, Jeremy Frank
+Track: AI Camera
+
+[X] Raspberry Pi and required hardware are ready
+[X] Required scripts/files are on the Pi
+[X] AI feature starts correctly
+[X] Demo input is ready
+[x] Demo produces the expected structured output
+[X] Output file/log/artifact can be shown
+[X] One fallback or backup artifact is ready
+[X] Architecture slide is ready
+[X] Speaking roles are assigned
+[X] Full demo was tested once from start to finish
