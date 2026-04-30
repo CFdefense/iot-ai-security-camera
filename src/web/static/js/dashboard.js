@@ -223,14 +223,20 @@
           },
         })
           .then(function (r) {
-            if (!r.ok) throw new Error("request_failed");
-            return r;
-          })
-          .then(function () {
-            if (typeof onSuccess === "function") onSuccess();
+            if (r.ok) {
+              if (typeof onSuccess === "function") onSuccess();
+              return;
+            }
+            var ct = (r.headers.get("content-type") || "").toLowerCase();
+            if (ct.indexOf("application/json") >= 0) {
+              return r.json().then(function (j) {
+                toast("error", (j && j.error) || "Request failed.");
+              });
+            }
+            toast("error", "Action failed. Please try again.");
           })
           .catch(function () {
-            toast("error", "Action failed. Please try again.");
+            toast("error", "Network error.");
           })
           .finally(function () {
             setBusy(form, false);

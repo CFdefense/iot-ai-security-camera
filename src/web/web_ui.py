@@ -240,14 +240,21 @@ def init_app(app: Flask) -> None:
     def dashboard_register():
         name = (request.form.get("name") or "").strip()
         if not name:
+            if _wants_json():
+                return jsonify({"error": "Name is required"}), 400
             return _render_dashboard("Name is required", status_code=400)
 
         try:
             user_id, _jpeg = capture_embed_and_save(name)
         except ValueError as e:
+            log.warning("dashboard register rejected: %s", e)
+            if _wants_json():
+                return jsonify({"error": str(e)}), 422
             return _render_dashboard(str(e), status_code=422)
         except Exception as e:
             log.exception("dashboard register capture failed")
+            if _wants_json():
+                return jsonify({"error": f"capture failed: {e}"}), 500
             return _render_dashboard(f"capture failed: {e}", status_code=500)
 
         mq = app.config.get("mqtt")
@@ -257,6 +264,8 @@ def init_app(app: Flask) -> None:
                 {"user_id": user_id, "name": name},
             )
 
+        if _wants_json():
+            return jsonify({"ok": True, "user_id": user_id})
         return redirect(url_for("dashboard"))
 
     @app.post("/dashboard/detection/toggle")

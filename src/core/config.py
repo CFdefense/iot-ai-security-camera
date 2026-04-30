@@ -55,6 +55,10 @@ API_HOST = os.environ.get("API_HOST", "127.0.0.1")
 API_PORT = int(os.environ.get("API_PORT", "5050"))
 API_KEY = os.environ.get("API_KEY", "").strip()
 API_KEY_HEADER = "X-API-Key"
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "TASK")
+# Native libcamera C++ logging verbosity (controls lines like camera_manager.cpp / pisp.cpp).
+# Keep terse by default so TASK mode focuses on workflow milestones.
+LIBCAMERA_LOG_LEVELS = os.environ.get("LIBCAMERA_LOG_LEVELS", "*:ERROR")
 
 # Web dashboard session auth; dashboard_users reset from env once at Flask startup (create_app).
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "")

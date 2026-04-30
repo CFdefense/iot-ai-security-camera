@@ -1,4 +1,4 @@
-"""Emit startup status banner into INFO logs for ``security-system``."""
+"""Emit startup status banner into TASK logs for ``security-system``."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from ..camera.picam.probe import describe_picamera2
 from ..data import db
 from ..integrations.serial_bridge import format_serial_open_error
 from . import config
+from .task_logging import TASK_LEVEL
 
 log = logging.getLogger("startup_banner")
 
@@ -67,14 +68,14 @@ def mqtt_broker_snapshot(mqtt_svc: Any, *, max_wait_sec: float = 1.0) -> str:
 
 
 def _format_line(inner: str) -> str:
-    clipped = inner if len(inner) <= 66 else inner[:63] + "..."
-    return "| " + clipped.ljust(66) + " |"
+    clipped = inner if len(inner) <= 74 else inner[:71] + "..."
+    return "| " + clipped.ljust(74) + " |"
 
 
 def format_banner_lines(mqtt_svc: Any) -> list[str]:
     """Border + rows for systemd / terminal logs."""
-    sep_eq = "+" + "=" * 70 + "+"
-    sep_dash = "+" + "-" * 70 + "+"
+    sep_eq = "+" + "=" * 78 + "+"
+    sep_dash = "+" + "-" * 78 + "+"
 
     db_ok, detail = describe_database()
     mqtt_line = mqtt_broker_snapshot(mqtt_svc)
@@ -97,34 +98,35 @@ def format_banner_lines(mqtt_svc: Any) -> list[str]:
 
     return [
         sep_eq,
-        _format_line("security-system startup"),
+        _format_line("SECURITY-SYSTEM STARTUP"),
         sep_eq,
-        _format_line("Components"),
-        _format_line("API: UP"),
-        _format_line("MQTT: " + ("UP" if mqtt_up else "DOWN")),
-        _format_line("Database: " + ("UP" if db_ok else "DOWN")),
-        _format_line("Camera: " + ("UP" if camera_up else "DOWN")),
-        _format_line("Sensor: " + ("UP" if sensor_up else "DOWN")),
-        _format_line("-" * 24),
-        _format_line("Errors"),
+        _format_line("COMPONENTS"),
+        _format_line("  API      : UP"),
+        _format_line("  MQTT     : " + ("UP" if mqtt_up else "DOWN")),
+        _format_line("  DATABASE : " + ("UP" if db_ok else "DOWN")),
+        _format_line("  CAMERA   : " + ("UP" if camera_up else "DOWN")),
+        _format_line("  SENSOR   : " + ("UP" if sensor_up else "DOWN")),
+        _format_line("-" * 30),
+        _format_line("NOTES"),
         *([_format_line("- none")] if not errors else [_format_line("- " + e) for e in errors]),
-        _format_line("-" * 24),
-        _format_line("Runtime"),
+        _format_line("-" * 30),
+        _format_line("RUNTIME"),
         _format_line(
-            f"REST API + dashboard: will bind {config.API_HOST}:{config.API_PORT}",
+            f"Dashboard: http://{config.API_HOST}:{config.API_PORT}",
         ),
         _format_line(
             (
-                "API key: configured for REST guards"
+                "REST auth: API key configured"
                 if config.API_KEY
-                else "API key: MISSING — set API_KEY (REST 500, /login 503)"
+                else "REST auth: API key missing (REST 500, /login 503)"
             ),
         ),
+        _format_line(f"Capture artifacts: {(config.ARTIFACTS_DIR / 'capture').as_posix()}"),
         sep_dash,
     ]
 
 
 def log_banner(mqtt_svc: Any) -> None:
-    """Emit one INFO row per banner line."""
+    """Emit one TASK row per banner line."""
     for line in format_banner_lines(mqtt_svc):
-        log.info(line)
+        log.log(TASK_LEVEL, line)

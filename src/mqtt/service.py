@@ -21,6 +21,7 @@ from typing import Any, Protocol
 import paho.mqtt.client as mqtt
 
 from ..core import config
+from ..core.task_logging import TASK_LEVEL
 
 log = logging.getLogger("mqtt.service")
 
@@ -117,7 +118,7 @@ class MqttService:
         crash startup; paho's loop will retry in the background. Publishes
         issued before the broker comes up are silently dropped by paho.
         """
-        log.info("connecting to mqtt %s:%s", self.host, self.port)
+        log.log(TASK_LEVEL, "mqtt: connecting to %s:%s", self.host, self.port)
         try:
             self._client.connect_async(self.host, self.port, keepalive=config.MQTT_KEEPALIVE)
         except Exception as e:
@@ -132,7 +133,7 @@ class MqttService:
 
     def _on_connect(self, client, userdata, flags, rc):
         self._connected = rc == 0
-        log.info("mqtt connected rc=%s", rc)
+        log.log(TASK_LEVEL, "mqtt: connected rc=%s", rc)
         if rc == 0:
             try:
                 client.subscribe(config.TOPIC_STATUS, qos=1)
@@ -208,7 +209,7 @@ class MqttService:
         _EVENTS_LOG.parent.mkdir(parents=True, exist_ok=True)
         with _EVENTS_LOG.open("a", encoding="utf-8") as f:
             f.write(body + "\n")
-        log.info("pub %s %s", topic, body)
+        log.debug("pub %s %s", topic, body)
         if topic == config.TOPIC_STATUS:
             self._merge_status_snapshot(dict(payload))
         # SSE notification stream listens on EventHub: only HOME/security/events (alerts + status elsewhere).

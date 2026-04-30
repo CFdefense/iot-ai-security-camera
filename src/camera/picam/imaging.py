@@ -15,6 +15,8 @@ from ...core import config
 from .face_embed import embed_face_bgr_uint8
 
 log = logging.getLogger("picam.imaging")
+CAPTURES_DIR = config.ARTIFACTS_DIR / "capture"
+CAPTURES_DIR.mkdir(parents=True, exist_ok=True)
 
 # libcamera allows only one Picamera2 session per device — serialize capture from Flask + serial bridge.
 _PICAMERA2_LOCK = threading.Lock()
@@ -22,7 +24,20 @@ _PICAMERA2_LOCK = threading.Lock()
 
 def capture_frame_jpeg() -> bytes:
     """Capture one frame as JPEG bytes from Picamera2."""
-    return _capture_jpeg_via_picamera2()
+    raw = _capture_jpeg_via_picamera2()
+    _persist_capture_artifact(raw)
+    return raw
+
+
+def _persist_capture_artifact(jpeg_bytes: bytes) -> None:
+    """Persist every successful camera capture to ``artifacts/capture`` for debugging/audit trails."""
+    ts = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
+    name = f"capture_{ts}_{time.time_ns()}.jpg"
+    out = CAPTURES_DIR / name
+    try:
+        out.write_bytes(jpeg_bytes)
+    except OSError:
+        log.warning("failed to persist capture artifact: %s", out, exc_info=True)
 
 
 def _capture_jpeg_via_picamera2() -> bytes:

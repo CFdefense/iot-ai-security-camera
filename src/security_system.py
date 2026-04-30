@@ -26,6 +26,7 @@ Run: ``uv run security-system`` (or: ``python -m src.security_system``).
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from functools import wraps
 from pathlib import Path
@@ -37,6 +38,7 @@ from .core import config
 from .core.event_hub import EventHub
 from .core.startup_banner import log_banner
 from .core.status_publish import publish_initial_edge_components, run_camera_status_refresh_loop
+from .core.task_logging import TASK_LEVEL, setup_logging
 from .data import db
 from .integrations.serial_bridge import run_serial_bridge
 from .mqtt import MqttPublisher, MqttService
@@ -166,7 +168,10 @@ def create_app(mqtt_service: MqttPublisher | None = None, *, event_hub: EventHub
 
 def main() -> None:
     """Run the REST API plus an in-process MQTT client + heartbeat thread."""
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    # Suppress verbose native libcamera INFO chatter in normal TASK monitoring.
+    os.environ.setdefault("LIBCAMERA_LOG_LEVELS", config.LIBCAMERA_LOG_LEVELS)
+    setup_logging()
+    log.log(TASK_LEVEL, "startup: initializing security-system services")
 
     _prefetch_face_models()
 
@@ -179,6 +184,7 @@ def main() -> None:
     hub = EventHub()
     mqtt_svc = MqttService(on_publish=hub.emit)
     mqtt_svc.start()
+    log.log(TASK_LEVEL, "startup: mqtt loop started (%s:%s)", mqtt_svc.host, mqtt_svc.port)
 
     stop_event = threading.Event()
     hb_thread = threading.Thread(
@@ -221,11 +227,13 @@ def main() -> None:
             daemon=True,
         )
         serial_thread.start()
+        log.log(TASK_LEVEL, "startup: serial bridge enabled on %s", config.SERIAL_PORT)
     else:
-        log.info("SERIAL_PORT is blank — Arduino serial bridge skipped (dashboard/MQTT still active).")
+        log.log(TASK_LEVEL, "startup: serial bridge skipped (SERIAL_PORT empty)")
 
     app = create_app(mqtt_svc, event_hub=hub)
     log_banner(mqtt_svc)
+    log.log(TASK_LEVEL, "startup: dashboard available at http://%s:%s", config.API_HOST, config.API_PORT)
     try:
         app.run(host=config.API_HOST, port=config.API_PORT, debug=False, use_reloader=False)
     finally:

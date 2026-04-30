@@ -9,6 +9,7 @@ import serial
 from ..camera.services import proximity
 from ..core import config
 from ..core.status_publish import publish_component_safe
+from ..core.task_logging import TASK_LEVEL
 from ..mqtt import MqttPublisher
 
 log = logging.getLogger("serial_bridge")
@@ -61,7 +62,7 @@ def run_serial_bridge(
         while ser is None and not stop_event.is_set():
             attempt += 1
             try:
-                log.info("opening serial port %s at %s baud", serial_port, baudrate)
+                log.log(TASK_LEVEL, "sensor-link: opening %s @ %s baud", serial_port, baudrate)
                 ser = serial.Serial(serial_port, baudrate=baudrate, timeout=timeout)
             except serial.SerialException as e:
                 if attempt == 1:
@@ -88,6 +89,7 @@ def run_serial_bridge(
             return
 
         publish_component_safe(mqtt_service, "sensor", "up")
+        log.log(TASK_LEVEL, "sensor-link: up (%s)", serial_port)
         reconnect_wait_s = 2.0
 
         lost_link = False
@@ -130,6 +132,7 @@ def run_serial_bridge(
                         serial_port,
                         str(e).replace("\n", " "),
                     )
+                    log.log(TASK_LEVEL, "sensor-link: down (%s)", serial_port)
                     lost_link = True
                     break
                 except Exception as e:
