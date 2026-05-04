@@ -6,6 +6,7 @@ import logging
 import threading
 from typing import Any
 
+from ..camera.picam.probe import describe_picamera2
 from . import config
 
 log = logging.getLogger("status_publish")
@@ -24,8 +25,6 @@ def publish_component_safe(mqtt_service: Any, component: str, state: str) -> Non
 
 def publish_camera_from_probe(mqtt_service: Any) -> None:
     """Set ``camera`` to up/down from Picamera2 / libcamera probe."""
-    from ..camera.picam.probe import describe_picamera2
-
     line = describe_picamera2()
     publish_component_safe(
         mqtt_service,

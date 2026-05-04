@@ -317,3 +317,41 @@ def test_dashboard_alert_photo_ok_when_logged_in(monkeypatch, isolated_paths, fa
         r = c.get(f"/dashboard/alerts/{alert_id}/photo")
     assert r.status_code == 200
     assert r.mimetype == "image/jpeg"
+
+
+def test_dashboard_delete_alert_requires_login(monkeypatch, isolated_paths):
+    """Delete detection event endpoint is session-protected."""
+    monkeypatch.setattr(config, "API_KEY", "test-key")
+    app = security_system.create_app(FakeMqtt())
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        assert c.post("/dashboard/alerts/1/delete").status_code == 302
+
+
+def test_dashboard_delete_alert_ok_when_logged_in(monkeypatch, isolated_paths, fake_mqtt):
+    """Logged-in dashboard users can delete persisted detection alerts."""
+    monkeypatch.setattr(config, "API_KEY", "device-secret")
+    monkeypatch.setenv("USER_EMAIL", "u@example.local")
+    monkeypatch.setenv("USER_PASSWORD", "pw")
+    with db.connect() as conn:
+        alert_id = db.record_detection_alert(
+            conn,
+            event_type="unknown_face_detected",
+            outcome="unknown",
+            image_ref="inline:test",
+            capture_image=b"\xff\xd8sample\xff\xd9",
+        )
+
+    app = security_system.create_app(fake_mqtt)
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        c.post("/login", data={"email": "u@example.local", "password": "pw"})
+        r = c.post(
+            f"/dashboard/alerts/{alert_id}/delete",
+            headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"},
+        )
+    assert r.status_code == 200
+    assert r.get_json()["ok"] is True
+    with db.connect() as conn:
+        rows = db.list_recent_detection_alerts(conn, limit=40)
+    assert all(int(row["id"]) != int(alert_id) for row in rows)

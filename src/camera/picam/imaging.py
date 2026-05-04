@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 import time
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -13,13 +12,16 @@ import numpy as np
 
 from ...core import config
 from .face_embed import embed_face_bgr_uint8
+from .session_lock import PICAMERA2_SESSION_LOCK
+
+try:
+    from picamera2 import Picamera2  # type: ignore[import-not-found]
+except ImportError:
+    Picamera2 = None  # type: ignore[assignment]
 
 log = logging.getLogger("picam.imaging")
 CAPTURES_DIR = config.ARTIFACTS_DIR / "capture"
 CAPTURES_DIR.mkdir(parents=True, exist_ok=True)
-
-# libcamera allows only one Picamera2 session per device — serialize capture from Flask + serial bridge.
-_PICAMERA2_LOCK = threading.Lock()
 
 
 def capture_frame_jpeg() -> bytes:
@@ -27,6 +29,11 @@ def capture_frame_jpeg() -> bytes:
     raw = _capture_jpeg_via_picamera2()
     _persist_capture_artifact(raw)
     return raw
+
+
+def persist_detection_capture(jpeg_bytes: bytes) -> None:
+    """Persist IMX500 gate JPEG under ``artifacts/capture`` (same as ``capture_frame_jpeg`` naming)."""
+    _persist_capture_artifact(jpeg_bytes)
 
 
 def _persist_capture_artifact(jpeg_bytes: bytes) -> None:
@@ -42,16 +49,14 @@ def _persist_capture_artifact(jpeg_bytes: bytes) -> None:
 
 def _capture_jpeg_via_picamera2() -> bytes:
     """Capture one still JPEG: preview config, short warmup, ``capture_file``."""
-    try:
-        from picamera2 import Picamera2  # type: ignore[import-not-found]
-    except ImportError as e:
+    if Picamera2 is None:
         raise RuntimeError(
             "Picamera2 is required for JPEG capture. On Raspberry Pi OS install e.g. "
             "`sudo apt install python3-picamera2 python3-libcamera`, then recreate the project "
             "venv with `uv venv --system-site-packages && uv sync` so imports match apt (see README).",
-        ) from e
+        )
 
-    with _PICAMERA2_LOCK:
+    with PICAMERA2_SESSION_LOCK:
         picam2 = Picamera2()
         cfg = picam2.create_preview_configuration(
             controls={"FrameRate": 30},

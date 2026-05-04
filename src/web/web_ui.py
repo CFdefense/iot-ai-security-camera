@@ -317,3 +317,16 @@ def init_app(app: Flask) -> None:
         if not raw:
             return Response("No alert image stored.", status=404, mimetype="text/plain")
         return Response(raw, mimetype="image/jpeg")
+
+    @app.post("/dashboard/alerts/<int:alert_id>/delete")
+    @_login_required
+    def dashboard_delete_alert(alert_id: int):
+        with db.connect() as conn:
+            deleted = db.delete_detection_alert(conn, alert_id)
+        if not deleted:
+            if _wants_json():
+                return jsonify({"error": "Detection event not found"}), 404
+            return _render_dashboard("Detection event not found", status_code=404)
+        if _wants_json():
+            return jsonify({"ok": True, "alert_id": alert_id})
+        return redirect(url_for("dashboard"))

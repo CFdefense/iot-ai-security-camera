@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Fake Arduino NDJSON over a PTY: run it, point ``SERIAL_PORT`` at the printed path, press Enter to fire ``obstacle_detected``.
+"""Fake Arduino NDJSON over a PTY.
+
+Run it, point ``SERIAL_PORT`` at the printed path, press Enter to fire ``obstacle_detected``.
 
   uv run fake-sensor
 
@@ -81,6 +83,7 @@ def _write_line_when_ready(master_fd: int, line: str) -> None:
 
 
 def main() -> int:
+    """Open a PTY, print its path, send ``obstacle_detected`` lines when Enter is pressed."""
     if pty is None:
         print("PTY not available on this platform.", file=sys.stderr)
         return 2

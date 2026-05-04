@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-hidden="true">
+  <defs>
+    <linearGradient id="shieldLogoGrad" x1="16" y1="2" x2="16" y2="30" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60a5fa"/>
+      <stop offset="0.45" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <path
+    fill="url(#shieldLogoGrad)"
+    d="M16 2 28 6.8v9.4c0 6.6-4.8 11.8-12 14.8C6.8 27.8 2 22.6 2 16.2V6.8L16 2Z"
+  />
+  <path
+    fill="#bfdbfe"
+    fill-opacity="0.22"
+    d="M16 6.2 23.2 8.9v6.8c0 3.9-2.8 7-7.2 8.8-4.4-1.8-7.2-4.9-7.2-8.8V8.9L16 6.2Z"
+  />
+</svg>

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 
-from ...data import db
 from ...core.task_logging import TASK_LEVEL
+from ...data import db
 from ..picam import imaging
 
 log = logging.getLogger("register_user")

@@ -42,6 +42,14 @@ HEARTBEAT_INTERVAL_SEC = int(os.environ.get("HEARTBEAT_INTERVAL_SEC", "60"))
 # Cosine similarity threshold for face match (see the Architecture document).
 MATCH_THRESHOLD = float(os.environ.get("MATCH_THRESHOLD", "0.6"))
 SENSOR_ID = os.environ.get("SENSOR_ID", "front_door_cam")
+# If serial trigger includes person + score, only embed when confidence is at/above this threshold.
+PERSON_DETECTION_MIN_SCORE = float(os.environ.get("PERSON_DETECTION_MIN_SCORE", "0.5"))
+
+# Pi AI Camera IMX500: always runs before YuNet/SFace on proximity triggers (`apt install imx500-models`).
+IMX500_RPK_PATH = Path("/usr/share/imx500-models/imx500_network_ssd_mobilenetv2_fpnlite_320x320_pp.rpk")
+IMX500_CONFIDENCE_THRESH = 0.55
+IMX500_VISION_TIMEOUT_SEC = 5.0
+IMX500_WARMUP_SEC = 2.0
 
 # Stored dashboard images (registration + detection alerts): same max edge and JPEG quality.
 STORED_JPEG_MAX_EDGE = int(os.environ.get("STORED_JPEG_MAX_EDGE", "640"))

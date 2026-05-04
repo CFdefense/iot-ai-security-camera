@@ -13,12 +13,30 @@
   {% set alert_tone = "other" %}
   {% endif %}
   <article class="alert-card alert-card--{{ alert_tone }}">
-    {% if a.has_capture_image %}
-    <img
-      src="{{ url_for('dashboard_alert_photo', alert_id=a.id) }}"
-      alt="Detection alert capture"
-    />
-    {% endif %}
+    <div class="user-photo-wrap{% if not a.has_capture_image %} user-photo-wrap--alert-placeholder{% endif %}">
+      {% if a.has_capture_image %}
+      <img
+        src="{{ url_for('dashboard_alert_photo', alert_id=a.id) }}"
+        alt="Detection alert capture"
+      />
+      {% else %}
+      <div class="alert-no-capture" aria-hidden="true"></div>
+      {% endif %}
+      <form
+        class="unregister-user-form delete-alert-form"
+        method="post"
+        action="{{ url_for('dashboard_delete_alert', alert_id=a.id) }}"
+      >
+        <button
+          type="submit"
+          class="unregister-btn"
+          title="Delete detection event"
+          aria-label="Delete detection event {{ a.id }}"
+        >
+          ×
+        </button>
+      </form>
+    </div>
     <div class="alert-meta">
       <div class="alert-type">{{ a.event_type | replace("_", " ") }}</div>
       <div class="alert-main">

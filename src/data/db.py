@@ -264,6 +264,13 @@ def get_detection_alert_image(conn: sqlite3.Connection, alert_id: int) -> bytes 
     return bytes(row["capture_image"])
 
 
+def delete_detection_alert(conn: sqlite3.Connection, alert_id: int) -> bool:
+    """Delete one detection alert row by id."""
+    cur = conn.execute("DELETE FROM detection_alerts WHERE id = ?", (int(alert_id),))
+    conn.commit()
+    return int(cur.rowcount or 0) > 0
+
+
 def _cosine(a: list[float], b: list[float]) -> float:
     num = sum(x * y for x, y in zip(a, b, strict=True))
     da = math.sqrt(sum(x * x for x in a))

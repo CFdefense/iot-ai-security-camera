@@ -27,12 +27,15 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import threading
 from functools import wraps
 from pathlib import Path
 
 from flask import Flask, jsonify, request
 
+from .camera.picam import imx500_person_gate as imx500_gate
+from .camera.picam.face_embed import ensure_face_models
 from .camera.services.register_user import capture_embed_and_save
 from .core import config
 from .core.event_hub import EventHub
@@ -50,8 +53,6 @@ log = logging.getLogger("security_system")
 def _prefetch_face_models() -> None:
     """Download YuNet + SFace ONNX to ``FACE_MODEL_DIR`` (or ``picam/models/``) if missing."""
     try:
-        from .camera.picam.face_embed import ensure_face_models
-
         yunet, sface = ensure_face_models()
         log.info("face ONNX models ready: %s, %s", yunet.name, sface.name)
     except Exception as e:
@@ -172,6 +173,11 @@ def main() -> None:
     os.environ.setdefault("LIBCAMERA_LOG_LEVELS", config.LIBCAMERA_LOG_LEVELS)
     setup_logging()
     log.log(TASK_LEVEL, "startup: initializing security-system services")
+
+    imx_reason = imx500_gate.startup_check_failed_reason()
+    if imx_reason:
+        log.error("security-system will not start: %s", imx_reason)
+        sys.exit(2)
 
     _prefetch_face_models()
 

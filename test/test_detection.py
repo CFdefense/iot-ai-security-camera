@@ -1,7 +1,8 @@
 import pytest
 
-from src.camera.picam import imaging
+from src.camera.picam import imaging, imx500_person_gate as imx_gate
 from src.camera.services import proximity
+from src.core import config
 from src.data import db
 
 
@@ -12,10 +13,12 @@ def _isolate(isolated_paths):
 
 
 @pytest.fixture(autouse=True)
-def _stub_camera_jpeg(monkeypatch):
-    """No Picamera2 in test env — provide minimal JPEG bytes for capture."""
+def _stub_imx500_capture(monkeypatch):
+    """No Pi hardware in CI — proximity always runs IMX path; stub JPEG + confident person."""
     tiny = b"\xff\xd8\xff\xdb" + bytes(range(16)) + b"\xff\xd9"
     monkeypatch.setattr(imaging, "capture_frame_jpeg", lambda: tiny)
+    monkeypatch.setattr(imaging, "persist_detection_capture", lambda _b: None)
+    monkeypatch.setattr(imx_gate, "capture_jpeg_and_person_seen", lambda: (tiny, True, 0.9))
 
 
 class RecordingMqtt:
@@ -113,4 +116,84 @@ def test_trigger_with_low_quality_capture_logs_event(monkeypatch):
     with db.connect() as conn:
         rows = db.list_recent_detection_alerts(conn, limit=5)
         assert rows[0]["event_type"] == "low_quality_capture"
-        assert rows[0]["reason"] == "no face detected"
+        assert rows[0]["reason"] == "YuNet/SFace embedding: no face detected"
+
+
+def test_non_person_detector_result_short_circuits_embedding(monkeypatch):
+    """If trigger metadata says a non-person object, skip face embedding entirely."""
+
+    def should_not_run(_b):
+        raise AssertionError("embedding should be skipped for non-person triggers")
+
+    monkeypatch.setattr(imaging, "embed_face_bytes", should_not_run)
+    mq = RecordingMqtt()
+    result = proximity.handle_trigger(
+        mq,
+        trigger_event={
+            "event_type": "obstacle_detected",
+            "detection": {"object": "cat", "score": 0.97},
+        },
+    )
+    assert result["status"] == "ignored_non_person"
+    assert result["object"] == "cat"
+    assert result["score"] == pytest.approx(0.97)
+    assert any(e[0] == "non_person_ignored" for e in mq.events)
+    assert not mq.alerts
+
+
+def test_low_person_score_short_circuits_embedding(monkeypatch):
+    """If detector reports person below threshold, skip embedding and emit ignored result."""
+
+    def should_not_run(_b):
+        raise AssertionError("embedding should be skipped for low-score person triggers")
+
+    monkeypatch.setattr(imaging, "embed_face_bytes", should_not_run)
+    monkeypatch.setattr(config, "PERSON_DETECTION_MIN_SCORE", 0.5)
+    mq = RecordingMqtt()
+    result = proximity.handle_trigger(
+        mq,
+        trigger_event={
+            "event_type": "obstacle_detected",
+            "detection": {"object": "person", "score": 0.25},
+        },
+    )
+    assert result["status"] == "ignored_low_person_score"
+    assert result["object"] == "person"
+    assert result["score"] == pytest.approx(0.25)
+    assert result["threshold"] == pytest.approx(0.5)
+    assert any(e[0] == "low_person_score_ignored" for e in mq.events)
+    assert not mq.alerts
+
+
+def test_root_level_label_not_used_for_short_circuit(monkeypatch):
+    """Only ``detection.{object,score}`` counts; root ``label``/``confidence`` are ignored."""
+    monkeypatch.setattr(imaging, "embed_face_bytes", lambda _b: [0.0] * 128)
+    mq = RecordingMqtt()
+    result = proximity.handle_trigger(
+        mq,
+        trigger_event={"event_type": "obstacle_detected", "label": "dog", "confidence": 0.88},
+    )
+    assert result["status"] == "unknown"
+    assert not any(e[0] == "non_person_ignored" for e in mq.events)
+
+
+def test_imx500_gate_blocks_yunet_when_no_person(monkeypatch):
+    """When IMX reports no person, YuNet/SFace must not run."""
+    tiny = b"\xff\xd8\xff\xdb" + bytes(range(16)) + b"\xff\xd9"
+
+    def should_not_run(_b):
+        raise AssertionError("embed_face_bytes must not run when IMX500 blocks")
+
+    monkeypatch.setattr(
+        imx_gate,
+        "capture_jpeg_and_person_seen",
+        lambda: (tiny, False, None),
+    )
+    monkeypatch.setattr(imaging, "embed_face_bytes", should_not_run)
+
+    mq = RecordingMqtt()
+    result = proximity.handle_trigger(mq)
+    assert result["status"] == "skipped_no_person"
+    assert result["reason"] == "imx500_no_person"
+    assert any(e[0] == "imx500_no_person" for e in mq.events)
+    assert not mq.alerts
