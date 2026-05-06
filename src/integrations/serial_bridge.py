@@ -113,7 +113,7 @@ def run_serial_bridge(
                     mqtt_service.publish_event("arduino_serial_received", {"raw": msg})
 
                     if should_trigger(msg):
-                        result = proximity.handle_trigger(mqtt_service)
+                        result = proximity.handle_trigger(mqtt_service, trigger_event=msg)
                         mqtt_service.publish_event(
                             "detection_result",
                             {

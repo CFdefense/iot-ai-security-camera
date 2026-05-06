@@ -354,10 +354,24 @@ form.logout {
 section {
   margin-top: 1.5rem;
 }
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.brand-logo {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  display: block;
+}
 .brand-title {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  min-width: 0;
 }
 .brand-title .project {
   font-size: 0.76rem;
@@ -508,6 +522,16 @@ section {
 .user-photo-wrap:focus-within img {
   filter: brightness(0.45);
 }
+.user-photo-wrap--alert-placeholder .alert-no-capture {
+  width: 100%;
+  min-height: 8.5rem;
+  background: #0f1419;
+  transition: filter 0.18s ease;
+}
+.user-photo-wrap--alert-placeholder:hover .alert-no-capture,
+.user-photo-wrap--alert-placeholder:focus-within .alert-no-capture {
+  filter: brightness(0.45);
+}
 .unregister-btn {
   border: 1px solid rgba(248, 113, 113, 0.7);
   background: rgba(127, 29, 29, 0.72);
@@ -528,6 +552,7 @@ section {
   color: #fee2e2;
 }
 .alert-card {
+  position: relative;
   border: 1px solid #2d3a47;
   border-radius: 10px;
   background: #111922;
@@ -725,6 +750,102 @@ article img.photo {
 .empty {
   color: #7d8a99;
   font-size: 0.9rem;
+}
+.dash-confirm-root {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+}
+.dash-confirm-root[hidden] {
+  display: none !important;
+}
+.dash-confirm-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  box-sizing: border-box;
+}
+.dash-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(40, 48, 60, 0.78);
+  backdrop-filter: blur(10px);
+}
+.dash-confirm-panel {
+  position: relative;
+  z-index: 1;
+  width: min(22rem, 100%);
+  padding: 1.35rem 1.4rem 1.25rem;
+  border-radius: 14px;
+  background: linear-gradient(165deg, #1a2330 0%, #111922 100%);
+  border: 1px solid #334155;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.55);
+  animation: dashConfirmIn 0.22s ease;
+}
+@keyframes dashConfirmIn {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.dash-confirm-title {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: 0.01em;
+}
+.dash-confirm-body {
+  margin: 0.65rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+.dash-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-top: 1.25rem;
+}
+.dash-confirm-btn {
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding: 0.45rem 1rem;
+  border-radius: 9px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.dash-confirm-btn--ghost {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: #3f4f5f;
+  color: #e2e8f0;
+}
+.dash-confirm-btn--ghost:hover {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: #556677;
+}
+.dash-confirm-btn--danger {
+  background: rgba(127, 29, 29, 0.85);
+  border-color: rgba(248, 113, 113, 0.55);
+  color: #fecaca;
+}
+.dash-confirm-btn--danger:hover {
+  background: rgba(153, 27, 27, 0.95);
+  color: #fee2e2;
 }
 #toast-stack {
   position: fixed;

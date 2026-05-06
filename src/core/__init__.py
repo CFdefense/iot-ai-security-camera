@@ -1,3 +1,3 @@
 """Core runtime primitives (config, status, startup banner)."""
 
-from . import config
+from . import config as config

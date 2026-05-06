@@ -8,6 +8,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
+_PICAMERA2_IMPORT_ERR: str | None = None
+try:
+    from picamera2 import Picamera2  # type: ignore[import-not-found]
+except (ImportError, ValueError, ModuleNotFoundError) as e:
+    Picamera2 = None  # type: ignore[assignment]
+    _PICAMERA2_IMPORT_ERR = str(e).split("\n", 1)[0]
+
 
 def _format_ok(infos: list[dict[str, Any]]) -> str:
     if not infos:
@@ -68,11 +75,8 @@ def _describe_via_system_python() -> str | None:
 def describe_picamera2() -> str:
     """Return ``OK ...`` if libcamera lists a sensor, else ``WARN ...``."""
     last_err: str | None = None
-    try:
-        from picamera2 import Picamera2  # type: ignore[import-not-found]
-    except (ImportError, ValueError, ModuleNotFoundError) as e:
-        # ValueError: NumPy C-API mismatch (venv NumPy 2.x vs apt simplejpeg, etc.)
-        last_err = str(e).split("\n", 1)[0]
+    if Picamera2 is None:
+        last_err = _PICAMERA2_IMPORT_ERR or "picamera2 import unavailable in current environment"
     else:
         try:
             return _format_ok(Picamera2.global_camera_info())

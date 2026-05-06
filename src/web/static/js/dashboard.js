@@ -40,8 +40,7 @@
     const kind = typeof p.event_type === "string" ? p.event_type : "mqtt";
     let detail = "";
     if (kind === "user_registered") {
-      detail =
-        typeof p.name === "string" ? p.name + " (#" + p.user_id + ")" : "(user_registered)";
+      detail = typeof p.name === "string" ? p.name : "(user_registered)";
     } else if (kind === "user_unregistered") {
       detail = typeof p.name === "string" ? p.name : "(user_unregistered)";
     } else if (kind === "access_granted") {
@@ -325,7 +324,8 @@
         evt === "access_granted" ||
         evt === "low_quality_capture" ||
         evt === "unknown_face_detected" ||
-        evt === "detection_result";
+        evt === "detection_result" ||
+        evt === "imx500_no_person";
       if (refreshPanels) {
         document.dispatchEvent(new CustomEvent("dash:refresh-panels"));
       }
@@ -503,48 +503,117 @@
 
   document.addEventListener("dash:refresh-panels", scheduleDashboardPanelsRefresh);
 
+  function showDashConfirm(opts) {
+    return new Promise(function (resolve) {
+      var root = document.getElementById("dash-confirm-root");
+      var titleEl = document.getElementById("dash-confirm-title");
+      var bodyEl = document.getElementById("dash-confirm-body");
+      var okBtn = document.getElementById("dash-confirm-confirm");
+      if (!root || !titleEl || !bodyEl || !okBtn) {
+        resolve(false);
+        return;
+      }
+      titleEl.textContent = opts.title || "Confirm";
+      bodyEl.textContent = opts.message || "";
+      okBtn.textContent = opts.confirmLabel || "Confirm";
+
+      function teardown(result) {
+        document.removeEventListener("keydown", onKey);
+        okBtn.removeEventListener("click", onOk);
+        dismissers.forEach(function (d) {
+          d.removeEventListener("click", onDismiss);
+        });
+        root.hidden = true;
+        root.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+        resolve(result);
+      }
+
+      function onOk() {
+        teardown(true);
+      }
+      function onDismiss() {
+        teardown(false);
+      }
+      function onKey(ev) {
+        if (ev.key === "Escape") onDismiss();
+      }
+
+      var dismissers = root.querySelectorAll("[data-dash-confirm-dismiss]");
+      okBtn.addEventListener("click", onOk);
+      dismissers.forEach(function (d) {
+        d.addEventListener("click", onDismiss);
+      });
+      document.addEventListener("keydown", onKey);
+      root.hidden = false;
+      root.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+      okBtn.focus();
+    });
+  }
+
   document.body.addEventListener("submit", function (e) {
     var form = e.target;
-    if (!form || !form.classList || !form.classList.contains("unregister-user-form")) return;
+    if (!form || !form.classList) return;
+    var isUnregister = form.classList.contains("unregister-user-form");
+    var isDeleteAlert = form.classList.contains("delete-alert-form");
+    if (!isUnregister && !isDeleteAlert) return;
     e.preventDefault();
-    if (!window.confirm("Unregister this user?")) return;
-    var btn = form.querySelector('button[type="submit"]');
-    if (btn) {
-      btn.disabled = true;
-      btn.style.opacity = "0.75";
-    }
-    fetch(form.action, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        Accept: "application/json,text/html",
-      },
-    })
-      .then(function (r) {
-        if (!r.ok) throw new Error("request_failed");
-        return r.json();
-      })
-      .then(function () {
-        scheduleDashboardPanelsRefresh();
-      })
-      .catch(function () {
-        var ts = document.getElementById("toast-stack");
-        if (ts) {
-          var div = document.createElement("div");
-          div.className = "toast";
-          div.textContent = "Unable to unregister user.";
-          ts.appendChild(div);
-          setTimeout(function () {
-            div.remove();
-          }, 4000);
+    var confirmOpts = isUnregister
+      ? {
+          title: "Remove this user?",
+          message:
+            "They will be removed from the whitelist and their registration photo will be deleted. You can register them again later.",
+          confirmLabel: "Unregister",
         }
+      : {
+          title: "Delete this event?",
+          message:
+            "This detection entry and its saved thumbnail will be removed from the dashboard timeline. This cannot be undone.",
+          confirmLabel: "Delete",
+        };
+    showDashConfirm(confirmOpts).then(function (confirmed) {
+      if (!confirmed) return;
+      var btn = form.querySelector('button[type="submit"]');
+      if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = "0.75";
+      }
+      fetch(form.action, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          Accept: "application/json,text/html",
+        },
       })
-      .finally(function () {
-        if (btn) {
-          btn.disabled = false;
-          btn.style.opacity = "";
-        }
-      });
+        .then(function (r) {
+          if (!r.ok) throw new Error("request_failed");
+          return r.json();
+        })
+        .then(function () {
+          scheduleDashboardPanelsRefresh();
+        })
+        .catch(function () {
+          var ts = document.getElementById("toast-stack");
+          if (ts) {
+            var div = document.createElement("div");
+            div.className = "toast";
+            div.textContent = isDeleteAlert
+              ? "Unable to delete detection event."
+              : "Unable to unregister user.";
+            ts.appendChild(div);
+            setTimeout(function () {
+              div.remove();
+            }, 4000);
+          }
+        })
+        .finally(function () {
+          if (btn) {
+            btn.disabled = false;
+            btn.style.opacity = "";
+          }
+        });
+    });
   });
 })();

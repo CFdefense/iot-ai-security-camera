@@ -117,6 +117,17 @@ def test_set_detection_toggles_flag_and_publishes(svc):
     assert payload["enabled"] is False
 
 
+def test_dashboard_status_bundle_fills_sensor_id_when_snapshot_omits_it(svc):
+    """Component-only MQTT merges often lack sensor_id; /dashboard/status.json must still show SENSOR_ID."""
+    with svc._lock:
+        svc._last_status_payload = {
+            "event_type": "heartbeat",
+            "component": {"sensor": {"state": "up"}},
+        }
+    bundle = svc.dashboard_status_bundle()
+    assert bundle["status_payload"]["sensor_id"] == config.SENSOR_ID
+
+
 def test_publish_status_is_retained_heartbeat(svc):
     """publish_status emits a retained heartbeat on TOPIC_STATUS so late subscribers see current state."""
     svc.publish_status()

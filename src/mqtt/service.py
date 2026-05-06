@@ -311,6 +311,7 @@ class MqttService:
         payload_out["connected"] = connected
         payload_out["detection_enabled"] = detection_enabled
         payload_out["uptime_sec"] = int(time.time() - started_ts)
+        payload_out["sensor_id"] = self.sensor_id
         merged_components: dict[str, Any] = {}
         merged_components.update(_component_rows(payload_out))
         merged_components["mqtt"] = {"state": self._status_state(connected)}

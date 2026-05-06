@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ai-security-system dashboard</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/shield-logo.svg') }}" type="image/svg+xml" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}" />
   </head>
   <body>
@@ -26,11 +27,43 @@
     </template>
     <div id="toast-stack" aria-live="polite"></div>
 
+    <div id="dash-confirm-root" class="dash-confirm-root" hidden>
+      <div class="dash-confirm-inner">
+        <div class="dash-confirm-backdrop" data-dash-confirm-dismiss tabindex="-1"></div>
+        <div
+          class="dash-confirm-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dash-confirm-title"
+        >
+          <h2 id="dash-confirm-title" class="dash-confirm-title"></h2>
+          <p id="dash-confirm-body" class="dash-confirm-body"></p>
+          <div class="dash-confirm-actions">
+            <button type="button" class="dash-confirm-btn dash-confirm-btn--ghost" data-dash-confirm-dismiss>
+              Cancel
+            </button>
+            <button type="button" class="dash-confirm-btn dash-confirm-btn--danger" id="dash-confirm-confirm">
+              Confirm
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <header class="shell">
-      <div class="brand-title">
-        <div class="project">ai-security-system</div>
-        <div class="headline">Security dashboard</div>
-        <div class="subtitle">Manage users, monitor detections, and control live scanning</div>
+      <div class="brand-mark">
+        <img
+          class="brand-logo"
+          src="{{ url_for('static', filename='img/shield-logo.svg') }}"
+          width="40"
+          height="40"
+          alt=""
+        />
+        <div class="brand-title">
+          <div class="project">ai-security-system</div>
+          <div class="headline">Security dashboard</div>
+          <div class="subtitle">Manage users, monitor detections, and control live scanning</div>
+        </div>
       </div>
       <div class="toolbar">
         <div class="status-wrap">

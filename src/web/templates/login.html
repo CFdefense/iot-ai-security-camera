@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Camera dashboard — Login</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/shield-logo.svg') }}" type="image/svg+xml" />
     <style>
       :root { font-family: system-ui, sans-serif; background: #0f1419; color: #e8eaed; }
       body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
@@ -14,7 +15,18 @@
         box-shadow: 0 12px 40px rgba(0,0,0,.35);
         width: min(360px, 92vw);
       }
-      h1 { font-size: 1.25rem; margin: 0 0 1rem; font-weight: 600; }
+      .login-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        margin-bottom: 1rem;
+      }
+      .login-brand img {
+        width: 2.25rem;
+        height: 2.25rem;
+        flex-shrink: 0;
+      }
+      h1 { font-size: 1.25rem; margin: 0; font-weight: 600; flex: 1; min-width: 0; }
       label { display: block; font-size: 0.8rem; color: #9aa7b8; margin-top: 0.75rem; }
       input {
         width: 100%; box-sizing: border-box;
@@ -42,7 +54,10 @@
 </head>
 <body>
   <div class="card">
-    <h1>Security camera dashboard</h1>
+    <div class="login-brand">
+      <img src="{{ url_for('static', filename='img/shield-logo.svg') }}" width="36" height="36" alt="" />
+      <h1>Security camera dashboard</h1>
+    </div>
     {% if error %}
     <div class="err">{{ error }}</div>
     {% endif %}

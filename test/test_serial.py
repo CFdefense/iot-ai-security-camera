@@ -82,8 +82,9 @@ def test_run_serial_bridge_logs_and_triggers_detection(monkeypatch, isolated_pat
 
     called = {"count": 0}
 
-    def fake_handle_trigger(mq):
+    def fake_handle_trigger(mq, trigger_event=None):
         called["count"] += 1
+        assert trigger_event and trigger_event["event_type"] == "obstacle_detected"
         return {"status": "granted", "user": "alice"}
 
     monkeypatch.setattr(serial_bridge.proximity, "handle_trigger", fake_handle_trigger)
@@ -119,7 +120,7 @@ def test_run_serial_bridge_ignores_non_trigger_event(monkeypatch):
 
     monkeypatch.setattr(serial_bridge.serial, "Serial", lambda *args, **kwargs: fake_serial)
 
-    def should_not_run(_mq):
+    def should_not_run(_mq, trigger_event=None):
         raise AssertionError("handle_trigger should not have been called")
 
     monkeypatch.setattr(serial_bridge.proximity, "handle_trigger", should_not_run)
