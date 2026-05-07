@@ -1,6 +1,6 @@
 # iot-ai-security-camera
 
-AI-powered security camera system (IoT + on-device/edge inference).
+An AI-powered IoT security camera system that combines edge AI inference, computer vision, MQTT messaging, and embedded hardware integration to provide automated user verification and real-time security monitoring.
 
 ## Team
 
